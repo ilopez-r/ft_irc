@@ -19,6 +19,8 @@ public:
     void setUsername(const std::string &username);
     bool isAuthenticated() const;
     void authenticate();
+    bool hasSentPassword() const;
+    void setPasswordSent(bool status);
 
     void sendMessage(const std::string &message);
     void processMessage(const std::string &message, Server &server);
@@ -29,6 +31,7 @@ private:
     std::string nickname;
     std::string username;
     bool authenticated;
+    bool passwordSent;
     std::queue<std::string> messageQueue;
 
     void handleCommand(const std::string &command, Server &server);

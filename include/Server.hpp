@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/10 16:35:55 by alirola-          #+#    #+#             */
-/*   Updated: 2024/12/11 20:15:53 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2024/12/12 19:00:49 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -30,10 +30,23 @@ public:
     void joinChannel(const std::string &channelName, Client *client);
     void sendMessageToReceiver(const std::string &receiver, const std::string &message, Client *sender);
     void disconnectClient(Client *client);
+    bool validatePassword(const std::string &password, Client *client) const;
+    bool isNicknameInUse(const std::string &nickname) const;
+    void notifyChannelsOfNicknameChange(Client *client, const std::string &oldNickname, const std::string &newNickname);
+    
+    // Métodos para comandos específicos
+    void kickUserFromChannel(const std::string &channelName, const std::string &userToKick, Client *sender);
+    void inviteUserToChannel(const std::string &channelName, const std::string &userToInvite, Client *sender);
+    void setChannelTopic(const std::string &channelName, const std::string &topic, Client *sender);
+    void setChannelMode(const std::string &channelName, const std::string &mode, const std::string &param, Client *sender);
+    std::string welcomeMessage; // Mensaje de bienvenida
+    std::string design; // Mensaje de bienvenida
+
 
 private:
     int port;
     std::string password;
+    std::string _topic;
     int serverSocket;
     std::vector<pollfd> pollFds;
     std::map<int, Client*> clients;
