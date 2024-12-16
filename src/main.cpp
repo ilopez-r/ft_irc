@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/10 17:32:56 by ilopez-r          #+#    #+#             */
-/*   Updated: 2024/12/10 17:41:30 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2024/12/16 13:41:08 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,7 +16,7 @@
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
-        std::cerr << "Usage: ./ircserv <port> <password>" << std::endl;
+        std::cerr << "Usage: ./ircserv <port> <password>\n";
         return 1;
     }
 
@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
         Server server(port, password);
         server.run();
     } catch (const std::exception &e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "Error: " << e.what() << "\n";
         return 1;
     }
 

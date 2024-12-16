@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/10 16:35:55 by alirola-          #+#    #+#             */
-/*   Updated: 2024/12/12 19:00:49 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2024/12/16 19:08:02 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,9 +28,11 @@ public:
 
     void run();
     void joinChannel(const std::string &channelName, Client *client);
+    void leaveChannel(const std::string &channelName, Client *client);
+    void showChannels(Client *client);
     void sendMessageToReceiver(const std::string &receiver, const std::string &message, Client *sender);
     void disconnectClient(Client *client);
-    bool validatePassword(const std::string &password, Client *client) const;
+    bool validatePassword(const std::string &password) const;
     bool isNicknameInUse(const std::string &nickname) const;
     void notifyChannelsOfNicknameChange(Client *client, const std::string &oldNickname, const std::string &newNickname);
     

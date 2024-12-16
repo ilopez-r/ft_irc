@@ -42,9 +42,9 @@ public:
 
     void clearUserLimit();
     std::set<Client *> clients;
+    std::set<Client *> operators;
 private:
     std::string name;
-    std::set<Client *> operators;
     std::set<Client *> invitedClients;
 
     // Configuración del canal

@@ -12,11 +12,11 @@ const std::string &Channel::getName() const { return name; }
 
 void Channel::addClient(Client *client) {
     clients.insert(client);
-    operators.erase(client); // Elimina al cliente si era operador.
 }
 
 void Channel::removeClient(Client *client) {
     clients.erase(client);
+    operators.erase(client); // Elimina al cliente si era operador.
 }
 
 void Channel::broadcastMessage(const std::string &message, Client *sender) {
@@ -87,7 +87,7 @@ void Channel::inviteClient(Client *client) {
 }
 
 void Channel::notifyNicknameChange(const std::string &oldNickname, const std::string &newNickname, Client *sender) {
-    std::string message = "[" + getName() + "]: '" + oldNickname + "' changed his nickname to '" + newNickname + "'\r\n";
+    std::string message = "[" + getName() + "]: '" + oldNickname + "' changed his nickname to '" + newNickname + "'\n";
     for (std::set<Client *>::iterator it = clients.begin(); it != clients.end(); ++it) {
         if (*it != sender)
             (*it)->sendMessage(message);

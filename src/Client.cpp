@@ -37,10 +37,10 @@ bool Client::hasSentPassword() const { return passwordSent; }
 
 void Client::setPasswordSent(bool status) { passwordSent = status; }
 
-void Client::sendMessage(const std::string &message) {
-    if (::send(fd, message.c_str(), message.size(), 0) < 0) {
-        std::cerr << "Failed to send message to client: " << fd << std::endl;
-    }
+void Client::sendMessage(const std::string &message)
+{
+    if (send(fd, message.c_str(), message.size(), 0) < 0)
+        std::cerr << "Failed to send message to client: " << fd << "\n";
 }
 
 void Client::processMessage(const std::string &message, Server &server) {
@@ -80,20 +80,21 @@ void Client::handleCommand(const std::string &command, Server &server) {
     {
         if (passwordSent)
         {
-            sendMessage("~ ERROR: 'PASS' command already sent.\r\n");
+            sendMessage("~ ERROR: 'PASS' command already sent.\n");
             return;
         }
-        if (server.validatePassword(param, this))
+        if (server.validatePassword(param))
         {
+            std::cout << "Client (" << getFd() << ") accepted in server\n";
             setPasswordSent(true);
-            sendMessage("~ Password accepted.\r\n");
+            sendMessage("~ Password accepted.\n");
         }
         else
-            sendMessage("~ ERROR: Incorrect password.\r\n");
+            sendMessage("~ ERROR: Incorrect password.\n");
     }
     else if (!passwordSent)
     {
-        sendMessage("~ ERROR: You must authenticate with 'PASS' before any other command.\r\n");
+        sendMessage("~ ERROR: You must authenticate with 'PASS' before any other command.\n");
         return;
 
     }
@@ -101,35 +102,35 @@ void Client::handleCommand(const std::string &command, Server &server) {
     {
         if (param.empty())
         {
-            sendMessage("~ ERROR: No username provided.\r\n");
+            sendMessage("~ ERROR: No username provided.\n");
             return;
         }
         // Asignar el username al cliente.
         setUsername(param);
-        sendMessage("~ You setted your username to '" + param + "'\r\n");
+        sendMessage("~ You setted your username to '" + param + "'\n");
     }
     else if (cmd == "NICK" || cmd == "nick")
     {
         if (username == "")
         {
-            sendMessage("~ ERROR: First you have to use command 'USER' and specify your username\r\n");
+            sendMessage("~ ERROR: First you have to use command 'USER' and specify your username\n");
             return;
         }
         if (param.empty())
         {
-            sendMessage("~ ERROR: No nickname provided\r\n");
+            sendMessage("~ ERROR: No nickname provided\n");
             return;
         }
         // Validar el nickname (esto puede expandirse según las reglas de IRC).
         if (param.find(' ') != std::string::npos || param.length() > 9)
         {
-            sendMessage("~ ERROR: Invalid nickname\r\n");
+            sendMessage("~ ERROR: Invalid nickname\n");
             return;
         }
         // Verificar si el nickname ya está en uso.
         if (server.isNicknameInUse(param))
         {
-            sendMessage("ERROR: Nickname '" + param + "' is already in use\r\n");
+            sendMessage("ERROR: Nickname '" + param + "' is already in use\n");
             return;
         }
         // Asignar el nickname al cliente.
@@ -137,40 +138,65 @@ void Client::handleCommand(const std::string &command, Server &server) {
         setNickname(param);
         if (oldNickname != "")
         {
-            sendMessage("~ You changed your nickname from '" + oldNickname + "' to '" + param + "'\r\n");
-            std::cout << "Client (" << getFd() << ") '" << oldNickname << "' changed his nickname to '" << getNickname() << "'" << std::endl;
+            sendMessage("~ You changed your nickname from '" + oldNickname + "' to '" + param + "'\n");
+            std::cout << "Client (" << getFd() << ") '" << oldNickname << "' changed his nickname to '" << getNickname() << "'\n";
         }
         else
         {
-            sendMessage("~ You setted your nickname to '" + param + "'\r\n");
-            std::cout << "Client (" << getFd() << ") setted his nickname to '" << getNickname() << "'" << std::endl;
+            sendMessage("~ You setted your nickname to '" + param + "'\n");
+            std::cout << "Client (" << getFd() << ") setted his nickname to '" << getNickname() << "'\n";
         }
         server.notifyChannelsOfNicknameChange(this, oldNickname, param);
     }
     else if (cmd == "JOIN" || cmd == "join") {
         if (nickname == "") {
-            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname\r\n");
+            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname\n");
             return;
         }
         if (param.empty()) {
-            sendMessage("~ ERROR: No channel name provided\r\n");
+            sendMessage("~ ERROR: No channel name provided\n");
             return;
         }
         if (param[0] != '#') {
-            sendMessage("~ ERROR: Channel name must start with '#'\r\n");
+            sendMessage("~ ERROR: Channel name must start with '#'\n");
             return;
         }
 
         server.joinChannel(param, this);
 
-    } else if (cmd == "MSG" || cmd == "msg") {
+    } 
+    else if (cmd == "LEAVE" || cmd == "leave")
+    {
         if (nickname == "") {
-            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname\r\n");
+            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname\n");
+            return;
+        }
+        if (param.empty()) {
+            sendMessage("~ ERROR: No channel name provided\n");
+            return;
+        }
+        if (param[0] != '#') {
+            sendMessage("~ ERROR: Channel name must start with '#'\n");
+            return;
+        }
+        server.leaveChannel(param,this);
+    }
+    else if (cmd == "CHANNELS" || cmd == "channels")
+    {
+        if (nickname == "") {
+            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname\n");
+            return;
+        }
+        server.showChannels(this);
+    }
+    else if (cmd == "MSG" || cmd == "msg") {
+        if (nickname == "") {
+            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname\n");
             return;
         }
         size_t colonPos = param.find(' ');
         if (colonPos == std::string::npos) {
-            sendMessage("~ ERROR: Invalid MSG format. Use MSG <receiver> <message>\r\n");
+            sendMessage("~ ERROR: Invalid MSG format. Use MSG <receiver> <message>\n");
             return;
         }
 
@@ -178,19 +204,19 @@ void Client::handleCommand(const std::string &command, Server &server) {
         std::string message = param.substr(colonPos + 1);
 
         if (receiver.empty() || message.empty()) {
-            sendMessage("~ ERROR: Receiver or message is empty\r\n");
+            sendMessage("~ ERROR: Receiver or message is empty\n");
             return;
         }
         // Enviar el mensaje al receptor.
         if (receiver == getNickname())  {
-            sendMessage("~ ERROR: You cannot send a message to yourself (" + getNickname() + ").\r\n");
+            sendMessage("~ ERROR: You cannot send a message to yourself (" + getNickname() + ").\n");
             return;
         }
         server.sendMessageToReceiver(receiver, message, this);
 
     } else if (cmd == "KICK" || cmd == "kick") {
         if (nickname == "") {
-            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname.\r\n");
+            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname.\n");
             return;
         }
         // Sintaxis: KICK <channel> <user> :<reason>
@@ -199,7 +225,7 @@ void Client::handleCommand(const std::string &command, Server &server) {
         std::string userToKick = param.substr(spacePos2 + 1);
 
         if (channelName.empty() || userToKick.empty()) {
-            sendMessage("ERROR: Invalid KICK command syntax.\r\n");
+            sendMessage("ERROR: Invalid KICK command syntax.\n");
             return;
         }
 
@@ -207,7 +233,7 @@ void Client::handleCommand(const std::string &command, Server &server) {
 
     } else if (cmd == "INVITE" || cmd == "invite") {
         if (nickname == "") {
-            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname.\r\n");
+            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname.\n");
             return;
         }
         // Sintaxis: INVITE <user> <channel>
@@ -216,7 +242,7 @@ void Client::handleCommand(const std::string &command, Server &server) {
         std::string channelName = param.substr(spacePos2 + 1);
 
         if (userToInvite.empty() || channelName.empty()) {
-            sendMessage("ERROR: Invalid INVITE command syntax.\r\n");
+            sendMessage("ERROR: Invalid INVITE command syntax.\n");
             return;
         }
 
@@ -224,7 +250,7 @@ void Client::handleCommand(const std::string &command, Server &server) {
 
     } else if (cmd == "TOPIC" || cmd == "topic") {
         if (nickname == "") {
-            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname.\r\n");
+            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname.\n");
             return;
         }
 
@@ -239,7 +265,7 @@ void Client::handleCommand(const std::string &command, Server &server) {
 
     } else if (cmd == "MODE" || cmd == "mode") {
         if (nickname == "") {
-            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname.\r\n");
+            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname.\n");
             return;
         }
         // Sintaxis esperada: MODE <channel> <+|-mode> [param]
@@ -252,7 +278,7 @@ void Client::handleCommand(const std::string &command, Server &server) {
         std::string modeParam = (secondSpace != std::string::npos) ? remaining.substr(secondSpace + 1) : "";
 
         if (channelName.empty() || mode.empty()) {
-            sendMessage("ERROR: Invalid MODE command syntax. Use MODE <channel> <+|-mode> [param]\r\n");
+            sendMessage("ERROR: Invalid MODE command syntax. Use MODE <channel> <+|-mode> [param]\n");
             return;
         }
 
@@ -261,5 +287,5 @@ void Client::handleCommand(const std::string &command, Server &server) {
         return;
     }
     else
-        sendMessage("~ Unknown command: " + cmd + "\r\n");
+        sendMessage("~ Unknown command: " + cmd + "\n");
 }
