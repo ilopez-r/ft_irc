@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   Channel.hpp                                        :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2024/12/19 20:21:37 by ilopez-r          #+#    #+#             */
+/*   Updated: 2024/12/19 20:21:38 by ilopez-r         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #ifndef CHANNEL_HPP
 #define CHANNEL_HPP
 
@@ -5,6 +17,10 @@
 #include <set>
 #include <map>
 #include <vector>
+#include <sstream>
+#include <iostream>
+#include "Client.hpp"
+#include "Server.hpp"
 
 class Client;
 
@@ -18,6 +34,7 @@ public:
     void addClient(Client *client);
     void removeClient(Client *client);
     void broadcastMessage(const std::string &message, Client *sender);
+    void broadcastMessage2(const std::string &message, Client *sender, Client *receiver);
     bool isOperator(Client *client) const;
     void addOperator(Client *client);
     void removeOperator(Client *client);
@@ -39,6 +56,7 @@ public:
 
     void setUserLimit(size_t limit);
     size_t getUserLimit() const;
+    std::string getChannelSize (int number) const;
 
     void clearUserLimit();
     std::set<Client *> clients;

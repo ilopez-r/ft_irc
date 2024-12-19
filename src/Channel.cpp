@@ -1,6 +1,16 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   Channel.cpp                                        :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2024/12/19 20:21:29 by ilopez-r          #+#    #+#             */
+/*   Updated: 2024/12/19 20:21:32 by ilopez-r         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "../include/Channel.hpp"
-#include "../include/Client.hpp"
-#include <iostream>
 
 Channel::Channel() : name(""), inviteOnly(false), topicRestricted(false), userLimit(0) {}
 
@@ -16,12 +26,19 @@ void Channel::addClient(Client *client) {
 
 void Channel::removeClient(Client *client) {
     clients.erase(client);
+    
     operators.erase(client); // Elimina al cliente si era operador.
 }
 
 void Channel::broadcastMessage(const std::string &message, Client *sender) {
     for (std::set<Client *>::iterator it = clients.begin(); it != clients.end(); ++it)
         if (*it != sender)
+            (*it)->sendMessage(message);
+}
+
+void Channel::broadcastMessage2(const std::string &message, Client *sender, Client *receiver) {
+    for (std::set<Client *>::iterator it = clients.begin(); it != clients.end(); ++it)
+        if (*it != sender && *it != receiver)
             (*it)->sendMessage(message);
 }
 
@@ -68,6 +85,12 @@ void Channel::setUserLimit(size_t limit) {
 
 size_t Channel::getUserLimit() const {
     return userLimit;
+}
+
+std::string Channel::getChannelSize (int number) const{
+    std::ostringstream oss;
+    oss << number;
+    return oss.str();
 }
 
 void Channel::clearUserLimit() {

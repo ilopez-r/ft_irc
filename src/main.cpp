@@ -6,13 +6,11 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/10 17:32:56 by ilopez-r          #+#    #+#             */
-/*   Updated: 2024/12/16 13:41:08 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2024/12/19 20:14:32 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../include/Server.hpp"
-#include <iostream>
-#include <cstdlib>
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {

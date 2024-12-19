@@ -8,10 +8,8 @@ RM = rm -rf
 
 SRC = src/Channel.cpp\
 		src/Client.cpp\
-		src/CommandParser.cpp\
 		src/main.cpp\
 		src/Server.cpp\
-		src/Utils.cpp\
 
 OBJ = $(SRC:.cpp=.o)
 

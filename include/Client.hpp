@@ -1,8 +1,26 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   Client.hpp                                         :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2024/12/19 20:21:45 by ilopez-r          #+#    #+#             */
+/*   Updated: 2024/12/19 20:23:36 by ilopez-r         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #ifndef CLIENT_HPP
 #define CLIENT_HPP
 
 #include <string>
 #include <queue>
+#include <iostream>
+#include <cstring>
+#include <unistd.h>
+#include <sys/socket.h>
+#include "Server.hpp"
+#include "Channel.hpp"
 
 class Server;
 
@@ -33,7 +51,6 @@ private:
     bool authenticated;
     bool passwordSent;
     std::queue<std::string> messageQueue;
-
     void handleCommand(const std::string &command, Server &server);
 };
 

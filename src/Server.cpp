@@ -1,23 +1,16 @@
 /* ************************************************************************** */
-/*																			*/
-/*														:::	  ::::::::   */
-/*   Server.cpp										 :+:	  :+:	:+:   */
-/*													+:+ +:+		 +:+	 */
-/*   By: ilopez-r <ilopez-r@student.42malaga.com	+#+  +:+	   +#+		*/
-/*												+#+#+#+#+#+   +#+		   */
-/*   Created: 2024/12/10 17:01:49 by alirola-		  #+#	#+#			 */
-/*   Updated: 2024/12/12 14:12:37 by ilopez-r		 ###   ########.fr	   */
-/*																			*/
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   Server.cpp                                         :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2024/12/19 20:21:10 by ilopez-r          #+#    #+#             */
+/*   Updated: 2024/12/19 20:21:15 by ilopez-r         ###   ########.fr       */
+/*                                                                            */
 /* ************************************************************************** */
 
 #include "../include/Server.hpp"
-#include "../include/Utils.hpp"
-#include <iostream>
-#include <stdexcept>
-#include <cstring>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <algorithm> // Para std::remove_if
 
 // Functor para std::remove_if
 struct RemovePollFd {
@@ -33,22 +26,22 @@ struct RemovePollFd {
 Server::Server(int port, const std::string &password)
 	: port(port), password(password), _topic("") {
 	initializeServer();
-	welcomeMessage =
+	help =
 		"Here are all the commands that you can use:\n"
 		"- PASS <password>: Necessary to start using the chat\n"
 		"- USER <username>: Register your username\n"
 		"- NICK <nickname>: Set your nickname\n"
-		"- ¡¡NO ESTÁ TERMINADO!! CHANNELS: Show available channels and which people are in them\n"
+		"- CHANNELS: Show available channels and which people are in them\n"
 		"- JOIN <#channel>: Join a channel\n"
 		"- MSG <user/#channel> <message>: Send a private message\n"
 		"- INVITE <user> <#channel>: Invite a user to a channel\n"
-		"- TOPIC <#channel> <new topic>: Show or set (if you add <new topic>) a topic for a channel\n"
-		"- ¡¡NO ESTÁ TERMINADO!! KICK <channel> <user> :<reason>: For operators. Kick a user from a channel\n"
+		"- TOPIC <#channel> [new topic]: Show or set (if you add <new topic>) a topic for a channel\n"
+		"- KICK <channel> <user> :<reason>: For operators. Kick a user from a channel\n"
 		"- MODE <#channel> <+|-mode> [param]: For operators. Change modes in a channel\n"
 		"		* i: Set/remove Invite-only channel\n"
 		"		* t: Set/remove the restrictions of the TOPIC command to channel operators\n"
 		"		* ¡¡NO ESTÁ TERMINADO!! k: Set/remove the channel key (password)\n"
-		"		* ¡¡NO ESTÁ TERMINADO!! o: Give/take channel operator privilege\n"
+		"		* o: Give/remove channel operator privilege\n"
 		"		* l: Set/remove the user limit to channel\n"
 		"- LEAVE <#channel>: Disconnect from a channel\n"
 		"- QUIT: Disconnect from the server\n"
@@ -164,18 +157,32 @@ bool Server::isNicknameInUse(const std::string &nickname) const {
     return false; // El nickname está disponible.
 }
 
+std::string Server::trim(const std::string &str) {
+    size_t start = str.find_first_not_of(" \t\r\n");
+    size_t end = str.find_last_not_of(" \t\r\n");
+    return (start == std::string::npos) ? "" : str.substr(start, end - start + 1);
+}
+
+
 void Server::handleClientMessage(int clientFd) {
-	char buffer[512];
-	std::memset(buffer, 0, sizeof(buffer));
-	int bytesReceived = recv(clientFd, buffer, sizeof(buffer) - 1, 0);
+    char buffer[512];
+    std::memset(buffer, 0, sizeof(buffer));
+    int bytesReceived = recv(clientFd, buffer, sizeof(buffer) - 1, 0);
 
-	if (bytesReceived <= 0) {
-		removeClient(clientFd);
-		return;
-	}
+    if (bytesReceived <= 0) {
+        removeClient(clientFd);
+        return;
+    }
 
-	std::string message(buffer);
-	clients[clientFd]->processMessage(message, *this);
+    // Procesar el mensaje
+    std::string rawInput(buffer);
+    std::string trimmedCommand = trim(rawInput);
+	if (trimmedCommand.empty()) {
+        return; // No hacer nada si la línea está vacía.
+    }
+	
+    // Procesar el comando
+    clients[clientFd]->processMessage(trimmedCommand, *this);
 }
 
 void Server::removeClient(int clientFd) {
@@ -189,39 +196,66 @@ void Server::removeClient(int clientFd) {
 	std::cout << "Client disconnected: " << clientFd << "\n";
 }
 
-void Server::joinChannel(const std::string &channelName, Client *client) {
+void Server::joinChannel(const std::string &channelName, Client *client, const std::string &key) {
 	std::map<std::string, Channel>::iterator it = channels.find(channelName);
 	Channel &channel = it->second;
 
 	// Si el canal no existe, créalo y asigna al cliente como operador.
-	if (it == channels.end()) {
+	if (it == channels.end())
+	{
 		channels[channelName] = Channel(channelName);
 		Channel &channel = channels[channelName];
 		channel.addClient(client);
 		channel.addOperator(client); // Cliente se convierte en operador inicial.
 		std::cout << "Client (" << client->getFd() << ") '" << client->getNickname() << "' created and joined channel: " << channelName << "\n";
 		client->sendMessage("~ You have created and joined channel: " + channelName + "\n");
-		channel.broadcastMessage(client->getNickname() + " has created the channel " + channelName + "\n", client);
+		if (key != "")
+            client->sendMessage("~ Channel '" + channelName + "' does not need a key to enter\n");
 		return;
 	}
 
 	// Si el canal ya existe
 	// Comprobar si el cliente ya está en el canal.
 	if (channel.hasClient(client)){
-		client->sendMessage("ERROR: You are already in the channel: " + channelName + "\n");
+		client->sendMessage("~ ERROR: You are already in the channel: " + channelName + "\n");
 		return;
 	}
 
 	// Si el canal está en modo invite-only, verificar si el cliente ha sido invitado.
 	if (channel.isInviteOnly() && !channel.isInvited(client)) {
-		client->sendMessage("ERROR: Channel " + channelName + " is invite-only\n");
+		client->sendMessage("~ ERROR: Channel " + channelName + " is invite-only\n");
 		return;
 	}
 
 	// Comprobar límite de usuarios.
 	if (channel.getUserLimit() > 0 && channel.getUserLimit() <= channel.clients.size()) {
-		client->sendMessage("ERROR: Channel " + channelName + " is full\n");
+		client->sendMessage("~ ERROR: Channel " + channelName + " is full\n");
 		return;
+	}
+	//Si no esta en modo key y yo he puesto una contraseña
+	if (channel.getKey() == "" && key != "")
+            client->sendMessage("~ Channel '" + channelName + "' does not need a key to enter\n");
+	// Comprobar si el canal está en modo key
+	if (channel.getKey() != "" && !channel.isInviteOnly())
+	{
+		if (key == channel.getKey())
+		{
+			channel.addClient(client);
+			client->sendMessage("~ You joined channel: " + channelName + "\n");
+			channel.broadcastMessage("~ '" + client->getNickname() + "' joined channel: " + channelName + "\n", client);
+			std::cout << "Client (" << client->getFd() << ") '" << client->getNickname() << "' joined channel: " << channelName << "\n";
+			return;
+		}
+		else if (key == "")
+		{
+			client->sendMessage("~ ERROR: Channel is in KEY mode. Use: JOIN <#channel> <key>\n");
+			return;
+		}
+		else
+		{
+			client->sendMessage("~ ERROR: Incorrect key\n");
+			return;
+		}
 	}
 
 	//Añade al cliente.
@@ -286,7 +320,7 @@ void Server::showChannels(Client *client)
 		const std::string &channelName = it->first;
         const Channel &channel = it->second;
 
-		client->sendMessage("	- " + channelName + ": ");
+		client->sendMessage("	- " + channelName + "(" + channel.getChannelSize(channel.clients.size()) + "): ");
 		for (std::set<Client *>::iterator clientIt = channel.clients.begin(); clientIt != channel.clients.end(); ++clientIt)
 		{
 			std::set<Client *>::iterator nextIt = clientIt;
@@ -387,32 +421,42 @@ bool Server::validatePassword(const std::string &password) const
 	return this->password == password;
 }
 
-void Server::kickUserFromChannel(const std::string &channelName, const std::string &userToKick, Client *sender) {
+void Server::kickUserFromChannel(const std::string &channelName, const std::string &userToKick, Client *sender, const std::string &reason) {
 	std::map<std::string, Channel>::iterator it = channels.find(channelName);
 	if (it == channels.end()) {
-		sender->sendMessage("ERROR: Channel " + channelName + " does not exist\n");
+		sender->sendMessage("~ ERROR: Channel " + channelName + " does not exist\n");
 		return;
 	}
 
 	Channel &channel = it->second;
-	if (!channel.isOperator(sender)) {
-		sender->sendMessage("ERROR: You are not an operator of " + channelName + "\n");
+	if (!channel.isOperator(sender))
+	{
+		sender->sendMessage("~ ERROR: You are not an operator of " + channelName + "\n");
 		return;
 	}
 
-	for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt) {
+	for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt)
+	{
 		Client *client = clientIt->second;
-		if (client->getNickname() == userToKick) {
-			channel.removeClient(client);
-			channel.broadcastMessage(userToKick + " has been kicked by " + sender->getNickname() + "\n", sender);
-			sender->sendMessage("You have kicked " + userToKick + " from " + channelName + ".\n");
-			client->sendMessage("You have been kicked from " + channelName + " by " + sender->getNickname() + "\n");
-			std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' has kicked Client (" << client->getFd() << ") '" << client->getNickname() << "' from channel" << channelName << "\n";
-			return;
+		if (client->getNickname() == userToKick)
+		{
+			if (channel.hasClient(client))
+			{
+				channel.removeClient(client);
+				channel.broadcastMessage("~ '" + userToKick + "' has been kicked by '" + sender->getNickname() + "' from channel " + channelName + "\n", sender);
+				sender->sendMessage("~ You have kicked '" + userToKick + "' from " + channelName + "\n");
+				client->sendMessage("~ You have been kicked from " + channelName + " by '" + sender->getNickname() + "'. Reason: " + reason + "\n");
+				std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' has kicked Client (" << client->getFd() << ") '" << client->getNickname() << "' from channel " << channelName << "\n";
+				return;
+			}
+			else
+			{
+				sender->sendMessage("~ ERROR: User '" + userToKick + "' is not in channel: " + channelName + "\n");
+				return;
+			}
 		}
 	}
-
-	sender->sendMessage("ERROR: User '" + userToKick + "' not found in channel: " + channelName + "\n");
+	sender->sendMessage("~ ERROR: User '" + userToKick + "' does not exist\n");
 }
 
 void Server::inviteUserToChannel(const std::string &channelName, const std::string &userToInvite, Client *sender) {
@@ -459,113 +503,178 @@ void Server::setChannelTopic(const std::string &channelName, const std::string &
 	// Establecer o mostrar el tema del canal
 	if (!topic.empty())
 	{
-		if ((channel.isTopicRestricted() && !channel.isOperator(sender)) || !channel.hasClient(sender))
+		if ((channel.isTopicRestricted() && !channel.isOperator(sender)) || !channel.hasClient(sender) || !channel.isOperator(sender))
 		{
-			sender->sendMessage("ERROR: You are not allowed to change the topic of channel: " + channelName + "\n");
+			sender->sendMessage("~ ERROR: You are not allowed to change the topic of channel: " + channelName + "\n");
 			return;
 		}
 		if (_topic == topic)
 		{
-			sender->sendMessage("ERROR: TOPIC in channel: " + channelName + " is already '" + topic + "'\n");
+			sender->sendMessage("~ ERROR: TOPIC in channel: " + channelName + " is already '" + topic + "'\n");
 			return;
 		}
 		_topic = topic;
-		sender->sendMessage("You changed TOPIC to '" + topic + "' in channel: " + channelName + "\n");
-		channel.broadcastMessage("'" + sender->getNickname() + "' changed TOPIC to '" + topic + "' in channel: " + channelName + "\n", sender);
+		sender->sendMessage("~ You changed TOPIC to '" + topic + "' in channel: " + channelName + "\n");
+		channel.broadcastMessage("~ '" + sender->getNickname() + "' changed TOPIC to '" + topic + "' in channel: " + channelName + "\n", sender);
 		std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' changed TOPIC to '" << topic << "' in channel: " << channelName << "\n";
 	}
 	else
 	{
 		if (_topic != "")
 		{
-			sender->sendMessage("Current TOPIC for channel: " + channelName + " is '" + _topic + "'\n");
+			sender->sendMessage("~ Current TOPIC for channel: " + channelName + " is '" + _topic + "'\n");
 			return;
 		}
-		sender->sendMessage("Channel: " + channelName + " has no TOPIC yet\n");
+		sender->sendMessage("~ Channel: " + channelName + " has no TOPIC yet\n");
 	}
 }
 
 void Server::setChannelMode(const std::string &channelName, const std::string &mode, const std::string &param, Client *sender) {
 	std::map<std::string, Channel>::iterator it = channels.find(channelName);
 	if (it == channels.end()) {
-		sender->sendMessage("ERROR: Channel " + channelName + " does not exist.\n");
+		sender->sendMessage("~ ERROR: Channel " + channelName + " does not exist.\n");
 		return;
 	}
 
 	Channel &channel = it->second;
 	if (!channel.isOperator(sender)) {
-		sender->sendMessage("ERROR: You are not an operator of " + channelName + ".\n");
+		sender->sendMessage("~ ERROR: You are not an operator of " + channelName + "\n");
 		return;
 	}
 
 	if (mode == "+o") {
 		// Asignar privilegio de operador
-		for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt) {
-			if (clientIt->second->getNickname() == param) {
-				channel.addOperator(clientIt->second);
-				sender->sendMessage("You gave OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n");
-				channel.broadcastMessage("'" + sender->getNickname() + "' gave OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n", sender);
-				std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' gave operator privileges to '" << param << "' in channel: " << channelName << "\n";
-				return;
+		if (param == "")
+		{
+			sender->sendMessage("~ ERROR: You need to specify a user for MODE +o\n");
+			return;
+		}
+		for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt)
+		{
+			Client *client = clientIt->second;
+			if (client->getNickname() == param)
+			{
+				if (channel.hasClient(client))
+				{
+					channel.addOperator(clientIt->second);
+					sender->sendMessage("~ You gave OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n");
+					channel.broadcastMessage2("~ '" + sender->getNickname() + "' gave OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n", sender, client);
+					client->sendMessage("~ '" + sender->getNickname() + "' gave you OPERATOR PRIVILEGES in channel: " + channelName + "\n");
+					std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' gave operator privileges to '" << param << "' in channel: " << channelName << "\n";
+					return;
+				}
+				else
+				{
+					sender->sendMessage("~ ERROR: User '" + param + "' is not in channel: " + channelName + "\n");
+					return;
+				}
+				
 			}
 		}
-		sender->sendMessage("ERROR: User " + param + " does not exist.\n");
+		sender->sendMessage("~ ERROR: User '" + param + "' does not exist\n");
 
 	} else if (mode == "-o") {
 		// Revocar privilegio de operador
-		for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt) {
-			if (clientIt->second->getNickname() == param) {
-				channel.removeOperator(clientIt->second);
-				sender->sendMessage("You removed OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n");
-				channel.broadcastMessage("'" + sender->getNickname() + "' removed OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n", sender);
-				std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' removed operator privileges to '" << param << "' in channel: " << channelName << "\n";
-				return;
+		if (param == "")
+		{
+			sender->sendMessage("~ ERROR: You need to specify a user for MODE -o\n");
+			return;
+		}
+		for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt)
+		{
+			Client *client = clientIt->second;
+			if (client->getNickname() == param)
+			{
+				if (channel.hasClient(client))
+				{
+					channel.removeOperator(clientIt->second);
+					sender->sendMessage("~ You removed OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n");
+					channel.broadcastMessage2("~ '" + sender->getNickname() + "' removed OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n", sender, client);
+					client->sendMessage("~ '" + sender->getNickname() + "' removed your OPERATOR PRIVILEGES in channel: " + channelName + "\n");
+					std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' removed operator privileges to '" << param << "' in channel: " << channelName << "\n";
+					return;
+				}
+				else
+				{
+					sender->sendMessage("~ ERROR: User '" + param + "' is not in channel: " + channelName + "\n");
+					return;
+				}
 			}
 		}
-		sender->sendMessage("ERROR: User " + param + " does not exist.\n");
+		sender->sendMessage("~ ERROR: User '" + param + "' does not exist\n");
 
 	} else if (mode == "+i") {
 		channel.setInviteOnly(true);
-		sender->sendMessage("You enabled INVITE-ONLY mode in channel: " + channelName + "\n");
-		channel.broadcastMessage("'" + sender->getNickname() + "' enabled INVITE-ONLY mode in channel: " + channelName + "\n", sender);
+		sender->sendMessage("~ You enabled INVITE-ONLY mode in channel: " + channelName + "\n");
+		channel.broadcastMessage("~ '" + sender->getNickname() + "' enabled INVITE-ONLY mode in channel: " + channelName + "\n", sender);
 		std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' enabled invite-only mode in channel: " << channelName << "\n";
 	} else if (mode == "-i") {
 		channel.setInviteOnly(false);
-		sender->sendMessage("You disabled INVITE-ONLY mode in channel: " + channelName + "\n");
-		channel.broadcastMessage("'" + sender->getNickname() + "' disabled INVITE-ONLY mode in channel: " + channelName + "\n", sender);
+		sender->sendMessage("~ You disabled INVITE-ONLY mode in channel: " + channelName + "\n");
+		channel.broadcastMessage("~ '" + sender->getNickname() + "' disabled INVITE-ONLY mode in channel: " + channelName + "\n", sender);
 		std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' disabled invite-only mode in channel: " << channelName << "\n";
 	} else if (mode == "+t") {
 		channel.setTopicRestricted(true);
-		sender->sendMessage("You enabled TOPIC-RESTRICTED mode in channel: " + channelName + "\n");
-		channel.broadcastMessage("'" + sender->getNickname() + "' enabled TOPIC-RESTRICTED mode in channel: " + channelName + "\n", sender);
+		sender->sendMessage("~ You enabled TOPIC-RESTRICTED mode in channel: " + channelName + "\n");
+		channel.broadcastMessage("~ '" + sender->getNickname() + "' enabled TOPIC-RESTRICTED mode in channel: " + channelName + "\n", sender);
 		std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' enabled topic-restricted mode in channel: " << channelName << "\n";
 	} else if (mode == "-t") {
 		channel.setTopicRestricted(false);
-		sender->sendMessage("You disabled TOPIC-RESTRICTED mode in channel: " + channelName + "\n");
-		channel.broadcastMessage("'" + sender->getNickname() + "' disabled TOPIC-RESTRICTED mode in channel: " + channelName + "\n", sender);
+		sender->sendMessage("~ You disabled TOPIC-RESTRICTED mode in channel: " + channelName + "\n");
+		channel.broadcastMessage("~ '" + sender->getNickname() + "' disabled TOPIC-RESTRICTED mode in channel: " + channelName + "\n", sender);
 		std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' disabled topic-restricted mode in channel: " << channelName << "\n";
 	} else if (mode == "+k") {
+		if (param == "")
+		{
+			sender->sendMessage("~ ERROR: You need to specify a key for MODE +k\n");
+			return;
+		}
 		channel.setKey(param);
-		sender->sendMessage("You enabled KEY (" + param + ") mode in channel: " + channelName + "\n");
-		channel.broadcastMessage("'" + sender->getNickname() + "' enabled KEY (" + param + ") mode in channel: " + channelName + "\n", sender);
+		sender->sendMessage("~ You enabled KEY (" + param + ") mode in channel: " + channelName + "\n");
+		channel.broadcastMessage("~ '" + sender->getNickname() + "' enabled KEY (" + param + ") mode in channel: " + channelName + "\n", sender);
 		std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' enabled key (" << param << ") mode in channel: " << channelName << "\n";
 	} else if (mode == "-k") {
 		channel.setKey("");
-		sender->sendMessage("You disabled KEY mode in channel: " + channelName + "\n");
-		channel.broadcastMessage("'" + sender->getNickname() + "' disabled KEY mode in channel: " + channelName + "\n", sender);
+		sender->sendMessage("~ You disabled KEY mode in channel: " + channelName + "\n");
+		channel.broadcastMessage("~ '" + sender->getNickname() + "' disabled KEY mode in channel: " + channelName + "\n", sender);
 		std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' disabled key mode in channel: " << channelName << "\n";
 	} else if (mode == "+l") {
+		if (param == "")
+		{
+			sender->sendMessage("~ ERROR: You need to specify a number for MODE +l\n");
+			return;
+		}
 		size_t limit = std::atoi(param.c_str());
+		if (limit == 0 || limit == 1)
+		{
+			sender->sendMessage("~ ERROR: Limit cannot be less than 2\n");
+			return;
+		}
+		if (limit < channel.clients.size())
+		{
+			sender->sendMessage("~ ERROR: Limit cannot be less than the channel's users actual number (" + channel.getChannelSize(channel.clients.size()) + ")\n");
+			return;
+		}
+		if (limit == channel.getUserLimit())
+		{
+			sender->sendMessage("~ ERROR: Channel: " + channelName + " is already limited to " + param + "\n");
+			return;
+		}
 		channel.setUserLimit(limit);
-		sender->sendMessage("You enabled USER-LIMIT (" + param + ") mode in channel: " + channelName + "\n");
-		channel.broadcastMessage("'" + sender->getNickname() + "' enabled USER-LIMIT (" + param + ") mode in channel: " + channelName + "\n", sender);
+		sender->sendMessage("~ You enabled USER-LIMIT (" + param + ") mode in channel: " + channelName + "\n");
+		channel.broadcastMessage("~ '" + sender->getNickname() + "' enabled USER-LIMIT (" + param + ") mode in channel: " + channelName + "\n", sender);
 		std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' enabled user-limit (" << param << ") mode in channel: " << channelName << "\n";
 	} else if (mode == "-l") {
+		if (channel.getUserLimit() == 0)
+		{
+			sender->sendMessage("~ ERROR: Channel: " + channelName + " already has no users limit\n");
+			return;
+		}
 		channel.clearUserLimit();
-		sender->sendMessage("You disabled USER-LIMIT mode in channel: " + channelName + "\n");
-		channel.broadcastMessage("'" + sender->getNickname() + "' disabled USER-LIMIT mode in channel: " + channelName + "\n", sender);
+		sender->sendMessage("~ You disabled USER-LIMIT mode in channel: " + channelName + "\n");
+		channel.broadcastMessage("~ '" + sender->getNickname() + "' disabled USER-LIMIT mode in channel: " + channelName + "\n", sender);
 		std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' disabled user-limit mode in channel: " << channelName << "\n";
 	} else {
-		sender->sendMessage("ERROR: Invalid mode command. Modes are: +|- i, t, k, o, l\n");
+		sender->sendMessage("~ ERROR: Invalid mode command. Modes are: +|- i, t, k, o, l\n");
 	}
 }
