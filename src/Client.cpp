@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/19 20:21:41 by ilopez-r          #+#    #+#             */
-/*   Updated: 2024/12/19 20:30:24 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2024/12/20 17:40:09 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -58,6 +58,8 @@ void Client::handleCommand(const std::string &command, Server &server) {
     size_t spacePos = command.find(' ');
     std::string cmd = command.substr(0, spacePos);
     std::string paramraw = (spacePos != std::string::npos) ? command.substr(spacePos + 1) : "";
+    for (std::size_t i = 0; i < cmd.size(); i++)
+        cmd[i] = toupper(cmd[i]);
     std::cout << "praw:" << paramraw << ".\n";
     std::string param = "";
     std::string param2 = "";
@@ -76,7 +78,7 @@ void Client::handleCommand(const std::string &command, Server &server) {
         std::cout << "p1:" << param << ".\n";
         std::cout << "p2:" << param2 << ".\n";
     }
-    if (cmd == "QUIT" || cmd == "quit")// Sintaxis: QUIT
+    if (cmd == "QUIT")// Sintaxis: QUIT
     {
         if (!param.empty())// Verificar ningun otra palabara detras de QUIT
         {
@@ -86,15 +88,12 @@ void Client::handleCommand(const std::string &command, Server &server) {
         server.disconnectClient(this);// Termina la conexión del cliente.
         return;
     }
-    if (cmd == "VIVA" || cmd == "viva")
+    if (cmd == "VIVA")
     {
-        if (cmd == "VIVA")
-            sendMessage("~ ESPAÑA\n");
-        else
-            sendMessage("~ ¡PONLO EN MAYÚSCULAS HOMBRE!\n");
+        sendMessage("~ ESPAÑA\n");
         return;
     }
-    if (cmd == "HELP" || cmd == "help")// Sintaxis: HELP
+    if (cmd == "HELP")// Sintaxis: HELP
     {
         if (!param.empty())// Verificar ningun otra palabara detras de HELP
         {
@@ -104,7 +103,7 @@ void Client::handleCommand(const std::string &command, Server &server) {
         sendMessage(server.help);//Envia el mensaje de help
         return;
     }
-    if (cmd == "PASS" || cmd == "pass")// Sintaxis: PASS <password>
+    if (cmd == "PASS")// Sintaxis: PASS <password>
     {
         if (passwordSent)//Verificar que no se mande 2 veces la misma pass
         {
@@ -130,16 +129,16 @@ void Client::handleCommand(const std::string &command, Server &server) {
         sendMessage("~ ERROR: You must authenticate with 'PASS' before any other command. Use: PASS <password>\n");
         return;
     }
-    else if (cmd == "USER" || cmd == "user" || cmd == "NICK" || cmd == "nick")// Sintaxis: USER <username> Sintaxis: NICK <nickname>
+    else if (cmd == "USER" || cmd == "NICK")// Sintaxis: USER <username> Sintaxis: NICK <nickname>
     {
-        if ((cmd == "NICK" || cmd == "nick") && username == "")// PARA NICK. Verificar que se ha introducido un username
+        if ((cmd == "NICK") && username == "")// PARA NICK. Verificar que se ha introducido un username
         {
             sendMessage("~ ERROR: First you have to use command 'USER' and specify your username. Use: USER <username>\n");
             return;
         }
         if (param.empty())// Validar username/nickname no esta vacio
         {
-            if (cmd == "USER" || cmd == "user")
+            if (cmd == "USER")
                 sendMessage("~ ERROR: No username provided. Use: USER <username>\n");
             else
                 sendMessage("~ ERROR: No nickname provided. Use: NICK <nickname>\n");
@@ -147,7 +146,7 @@ void Client::handleCommand(const std::string &command, Server &server) {
         }
         if (param2 != "") // Verificar ningun otra palabara detras del username/nickname
         {
-            if (cmd == "USER" || cmd == "user")
+            if (cmd == "USER")
                 sendMessage("~ ERROR: Command 'USER' does not accept any more parameters than the USERNAME. Use: USER <username>\n");
             else
                 sendMessage("~ ERROR: Command 'NICK' does not accept any more parameters than the NICKNAME. Use: NICK <nickname>\n");
@@ -155,13 +154,13 @@ void Client::handleCommand(const std::string &command, Server &server) {
         }
         if (param.length() > 9)// Verificar que no sea mas largo de 9 caracteres
         {
-            if (cmd == "USER" || cmd == "user")
+            if (cmd == "USER")
                 sendMessage("~ ERROR: Username cannot be longer than 9 characters\n");
             else
                 sendMessage("~ ERROR: Nickname cannot be longer than 9 characters\n");
             return;
         }
-        if (cmd == "USER" || cmd == "user")// Asignar el username al cliente.
+        if (cmd == "USER")// Asignar el username al cliente.
         {
             setUsername(param);
             sendMessage("~ You setted your username to '" + param + "'\n");
@@ -190,14 +189,14 @@ void Client::handleCommand(const std::string &command, Server &server) {
     }
     else if (nickname == "")// Obligar a que haya un nickname para poder hacer el resto de comandos
     {
-        sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname\n");
+        sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname. Use: NICK <nickname>\n");
         return;
     }
-    else if (cmd == "JOIN" || cmd == "join" || cmd == "LEAVE" || cmd == "leave")// Sintaxis: JOIN <channel> [key]. Sintaxis: LEAVE <channel>
+    else if (cmd == "JOIN" || cmd == "LEAVE")// Sintaxis: JOIN <channel> [key]. Sintaxis: LEAVE <channel>
     {
         if (param.empty())// Verificar que se ha especificado un canal
         {
-            if (cmd == "JOIN" || cmd == "join")
+            if (cmd == "JOIN")
                 sendMessage("~ ERROR: No channel name provided. Use: JOIN <#channel> [key]\n");
             else
                 sendMessage("~ ERROR: No channel name provided. Use: LEAVE <#channel>\n");
@@ -208,17 +207,17 @@ void Client::handleCommand(const std::string &command, Server &server) {
             sendMessage("~ ERROR: Channel name must start with '#'\n");
             return;
         }
-        if ((cmd == "LEAVE" || cmd == "leave") && !param2.empty())// PARA LEAVE. Verificar ningun otra palabara detras del canal
+        if ((cmd == "LEAVE") && !param2.empty())// PARA LEAVE. Verificar ningun otra palabara detras del canal
         {
-            sendMessage("~ ERROR: Command 'LEAVE' does not accept any more parameters than the #CHANNEL. Use: LEAVE <#channel>\n");
+            sendMessage("~ ERROR: Command 'LEAVE' does not accept any more parameters than #CHANNEL. Use: LEAVE <#channel>\n");
             return;
         }
-        if (cmd == "JOIN" || cmd == "join")
+        if (cmd == "JOIN")
             server.joinChannel(param, this, param2);//funcion para unir a un cliente aun canal
         else
             server.leaveChannel(param,this);//funcion para salir un cliente de un canal
     }
-    else if (cmd == "CHANNELS" || cmd == "channels")// Sintaxis: CHANNELS
+    else if (cmd == "CHANNELS")// Sintaxis: CHANNELS
     {
         if (!param.empty())//Verificar ningun otra palabara detras de CHANNELS
         {
@@ -227,7 +226,7 @@ void Client::handleCommand(const std::string &command, Server &server) {
         }
         server.showChannels(this);//mostrar todos los canales activos
     }
-    else if (cmd == "MSG" || cmd == "msg")// Sintaxis: MSG <user/#channel> <message>
+    else if (cmd == "MSG")// Sintaxis: MSG <user/#channel> <message>
     {
         if (param.empty() || param2.empty())//Verificar que el destinatario y el mensaje no esten vacios
         {
@@ -236,12 +235,12 @@ void Client::handleCommand(const std::string &command, Server &server) {
         }
         if (param == getNickname())//Verificar que no me este mandando un mensaje a mi mismo
         {
-            sendMessage("~ ERROR: You cannot send a message to yourself (" + getNickname() + ").\n");
+            sendMessage("~ ERROR: You cannot send a message to yourself ('" + getNickname() + "')\n");
             return;
         }
         server.sendMessageToReceiver(param, param2, this);// Enviar el mensaje al receptor.
     }
-    else if (cmd == "KICK" || cmd == "kick")// Sintaxis: KICK <#channel> <user> <reason>
+    else if (cmd == "KICK")// Sintaxis: KICK <#channel> <user> <reason>
     {
         std::string userToKick = "";
         std::string reason = "";
@@ -253,27 +252,29 @@ void Client::handleCommand(const std::string &command, Server &server) {
         }
         if (param.empty() || userToKick.empty() || reason.empty())//Verificar que ninguno de los parametros este vacio
         {
-            sendMessage("~ ERROR: Invalid KICK command syntax. Use KICK <#channel> <user> <reason>\n");
+            sendMessage("~ ERROR: Invalid KICK command syntax. Use: KICK <#channel> <user> <reason>\n");
             return;
         }
-        server.kickUserFromChannel(param, userToKick, this, reason);//Funcion de kickear
+        server.invite_and_kick(param, userToKick, this, reason, 0);//Funcion de kickear
     }
-    else if (cmd == "INVITE" || cmd == "invite")// Sintaxis: INVITE <user> <#channel>
+    else if (cmd == "INVITE")// Sintaxis: INVITE <#channel> <user> 
     {
-        size_t spacePos2 = param.find(' ');
-        std::string userToInvite = param.substr(0, spacePos2);
-        std::string channelName = param.substr(spacePos2 + 1);
-
-        if (userToInvite.empty() || channelName.empty())
+        if (param.empty() || param2.empty())
         {
-            sendMessage("ERROR: Invalid INVITE command syntax.\n");
+            sendMessage("ERROR: Invalid INVITE command syntax. Use: INVITE <user> <#channel>\n");
             return;
         }
-
-        server.inviteUserToChannel(channelName, userToInvite, this);
-
+        size_t spacePos = param2.find(' ');
+        std::string good = param2.substr(0, spacePos);
+        std::string bad = (spacePos != std::string::npos) ? param2.substr(spacePos + 1) : "";
+        if (!bad.empty())//Verificar ningun otra palabara detras de <user>
+        {
+            sendMessage("~ ERROR: Command 'INVITE' does not accept any more parameters than USER and CHANNEL. Use: INVITE <user> <#channel>\n");
+            return;
+        }
+        server.invite_and_kick(param, param2, this, "", 1);//Funcion de invitar
     }
-    else if (cmd == "TOPIC" || cmd == "topic")// Sintaxis: TOPIC <#channel> [new topic]
+    else if (cmd == "TOPIC")// Sintaxis: TOPIC <#channel> [new topic]
     {
         if (param.empty())
         {
@@ -282,31 +283,24 @@ void Client::handleCommand(const std::string &command, Server &server) {
         }
         server.setChannelTopic(param, param2, this);
     }
-    else if (cmd == "MODE" || cmd == "mode")// Sintaxis: MODE <channel> <+|-mode> [param]
+    else if (cmd == "MODE")// Sintaxis: MODE <channel> <+|-mode> [arg]
     {
-        if (nickname == "")
+        if (param.empty() || param2.empty())//Verificar que ninguno de los parametros este vacio
         {
-            sendMessage("~ ERROR: First you have to use command 'NICK' and specify your nickname.\n");
+            sendMessage("~ ERROR: Invalid MODE command syntax. Use: MODE <channel> <+|-mode> [param]\n");
             return;
         }
-        
-        size_t firstSpace = param.find(' ');
-        std::string channelName = param.substr(0, firstSpace);
-        std::string remaining = (firstSpace != std::string::npos) ? param.substr(firstSpace + 1) : "";
-
-        size_t secondSpace = remaining.find(' ');
-        std::string mode = remaining.substr(0, secondSpace);
-        std::string modeParam = (secondSpace != std::string::npos) ? remaining.substr(secondSpace + 1) : "";
-
-        if (channelName.empty() || mode.empty())
+        size_t spacePos = param2.find(' ');
+        std::string mode = param2.substr(0, spacePos);
+        std::string arg = (spacePos != std::string::npos) ? param2.substr(spacePos + 1) : "";
+        std::cout << "mode:" << mode << ".\n";
+        std::cout << "arg:" << arg << ".\n"; 
+        if (arg != "" && (mode == "+i" || mode == "-i" || mode == "+t" || mode == "-t"))
         {
-            sendMessage("ERROR: Invalid MODE command syntax. Use MODE <channel> <+|-mode> [param]\n");
+            sendMessage("~ ERROR: Command 'MODE " + mode +"' does not accept any more parameters than CHANNEL and <+|-mode>. Use: MODE <channel> <+|-mode>\n");
             return;
         }
-
-        // Enviar la solicitud de configuración del modo al servidor
-        server.setChannelMode(channelName, mode, modeParam, this);
-        return;
+        server.setChannelMode(param, mode, arg, this);// Enviar la solicitud de configuración del modo al servidor
     }
     else
         sendMessage("~ Unknown command: " + cmd + "\n");

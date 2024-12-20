@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/10 16:35:55 by alirola-          #+#    #+#             */
-/*   Updated: 2024/12/19 20:19:06 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2024/12/20 17:39:39 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -49,8 +49,7 @@ public:
     static std::string trim(const std::string &str);
     
     // Métodos para comandos específicos
-    void kickUserFromChannel(const std::string &channelName, const std::string &userToKick, Client *sender, const std::string &reason);
-    void inviteUserToChannel(const std::string &channelName, const std::string &userToInvite, Client *sender);
+    void invite_and_kick(const std::string &channelName, const std::string &user, Client *sender, const std::string &reason, int invite);
     void setChannelTopic(const std::string &channelName, const std::string &topic, Client *sender);
     void setChannelMode(const std::string &channelName, const std::string &mode, const std::string &param, Client *sender);
     std::string help; // Mensaje de ayuda

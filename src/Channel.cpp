@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/19 20:21:29 by ilopez-r          #+#    #+#             */
-/*   Updated: 2024/12/19 20:21:32 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2024/12/20 13:02:45 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -26,7 +26,6 @@ void Channel::addClient(Client *client) {
 
 void Channel::removeClient(Client *client) {
     clients.erase(client);
-    
     operators.erase(client); // Elimina al cliente si era operador.
 }
 

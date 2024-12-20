@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/19 20:21:37 by ilopez-r          #+#    #+#             */
-/*   Updated: 2024/12/19 20:21:38 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2024/12/20 13:06:35 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -61,10 +61,9 @@ public:
     void clearUserLimit();
     std::set<Client *> clients;
     std::set<Client *> operators;
+    std::set<Client *> invitedClients;
 private:
     std::string name;
-    std::set<Client *> invitedClients;
-
     // Configuración del canal
     bool inviteOnly;
     bool topicRestricted;
