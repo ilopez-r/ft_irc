@@ -5,8 +5,8 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/12/10 16:35:55 by alirola-          #+#    #+#             */
-/*   Updated: 2024/12/20 17:39:39 by ilopez-r         ###   ########.fr       */
+/*   Created: 2024/12/22 15:00:10 by ilopez-r          #+#    #+#             */
+/*   Updated: 2024/12/22 20:46:22 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,13 +18,14 @@
 #include <cstring>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <algorithm> // Para std::remove_if
+#include <algorithm>
 #include <string>
 #include <map>
 #include <vector>
 #include <set>
 #include <poll.h>
 #include <cctype>
+#include <fcntl.h>
 #include "Client.hpp"
 #include "Channel.hpp"
 
@@ -32,43 +33,40 @@ class Client;
 
 class Channel;
 
-class Server {
-public:
-    Server(int port, const std::string &password);
-    ~Server();
+class Server
+{
+	public:
+			Server(int port, const std::string &password);
+			~Server();
 
-    void run();
-    void joinChannel(const std::string &channelName, Client *client, const std::string &key);
-    void leaveChannel(const std::string &channelName, Client *client);
-    void showChannels(Client *client);
-    void sendMessageToReceiver(const std::string &receiver, const std::string &message, Client *sender);
-    void disconnectClient(Client *client);
-    bool validatePassword(const std::string &password) const;
-    bool isNicknameInUse(const std::string &nickname) const;
-    void notifyChannelsOfNicknameChange(Client *client, const std::string &oldNickname, const std::string &newNickname);
-    static std::string trim(const std::string &str);
-    
-    // Métodos para comandos específicos
-    void invite_and_kick(const std::string &channelName, const std::string &user, Client *sender, const std::string &reason, int invite);
-    void setChannelTopic(const std::string &channelName, const std::string &topic, Client *sender);
-    void setChannelMode(const std::string &channelName, const std::string &mode, const std::string &param, Client *sender);
-    std::string help; // Mensaje de ayuda
-    std::string design; // Mensaje de bienvenida
-    std::map<std::string, Channel> channels;
+			void run();
+			static std::string trim(const std::string &str);
+			void commandQUIT(Client *client, const std::string &param);
+			void commandHELP(Client *client, const std::string &cmd, const std::string &other);
+			void commandPASS(Client *client, const std::string &pass,  const std::string &other);
+			void commandUSER(Client *client, const std::string &username, const std::string &other);
+			void commandNICK(Client *client, const std::string &nickname, const std::string &other);
+			void commandCHANNELS(Client *client, const std::string &param, const std::string &other);
+			void commandMSG(Client *sender, const std::string &receiver, const std::string &message);
+			void commandJOIN(Client *client, const std::string &channelName, const std::string &key, const std::string &other);
+			void commandLEAVE(Client *client, const std::string &channelName, const std::string &other);
+			void commandKICK(Client *sender, const std::string &channelName, const std::string &user, const std::string &reason);
+			void commandINVITE(Client *sender, const std::string &channelName, const std::string &user, const std::string &other);
+			void commandTOPIC(Client *sender, const std::string &channelName, const std::string &topic);
+			void commandKEY(Client *sender, const std::string &channelName, const std::string &other);
+			void commandMODE(Client *sender, const std::string &channelName, const std::string &mode, const std::string &param);
+	private:
+			int port;
+			int serverSocket;
+			std::vector<pollfd> pollFds;
+			std::string design;
+			std::string _password;
+			std::map<int, Client*> clients;
+			std::map<std::string, Channel> channels;
 
-private:
-    int port;
-    std::string password;
-    std::string _topic;
-    int serverSocket;
-    std::vector<pollfd> pollFds;
-    std::map<int, Client*> clients;
-
-    void initializeServer();
-    void acceptNewClient();
-    void handleClientMessage(int clientFd);
-    void removeClient(int clientFd);
-    
+			void initializeServer();
+			void acceptNewClient();
+			void handleClientMessage(int clientFd);
 };
 
 #endif

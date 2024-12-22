@@ -5,8 +5,8 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/12/19 20:21:37 by ilopez-r          #+#    #+#             */
-/*   Updated: 2024/12/20 13:06:35 by ilopez-r         ###   ########.fr       */
+/*   Created: 2024/12/22 14:58:23 by ilopez-r          #+#    #+#             */
+/*   Updated: 2024/12/22 17:39:56 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,51 +24,53 @@
 
 class Client;
 
-class Channel {
-public:
-    Channel();
-    Channel(const std::string &name);
-    ~Channel();
+class Channel
+{
+	public:
+			Channel();
+			Channel(const std::string &name);
+			~Channel();
 
-    const std::string &getName() const;
-    void addClient(Client *client);
-    void removeClient(Client *client);
-    void broadcastMessage(const std::string &message, Client *sender);
-    void broadcastMessage2(const std::string &message, Client *sender, Client *receiver);
-    bool isOperator(Client *client) const;
-    void addOperator(Client *client);
-    void removeOperator(Client *client);
-    bool hasClient(Client *client) const;
-    bool isInvited(Client *client) const; // Verificar si el cliente ha sido invitado
-    void inviteClient(Client *client); // Añadir cliente a la lista de invitados
-    void notifyNicknameChange(const std::string &oldNickname, const std::string &newNickname, Client *sender);
+			const std::string &getName() const;
+			void addClient(Client *client);
+			void removeClientChannnel(Client *client);
+			void messageToGroup(const std::string &message);
+			void messageToGroupNoSender(const std::string &message, Client *sender);
+			void messageToGroupNoSenderNoReceiver(const std::string &message, Client *sender, Client *receiver);
+			bool isOperator(Client *client) const;
+			void addOperator(Client *client);
+			void removeOperator(Client *client);
+			bool hasClient(Client *client) const;
+			bool isInvited(Client *client) const; // Verificar si el cliente ha sido invitado
+			void inviteClient(Client *client); // Añadir cliente a la lista de invitados
 
 
-    // Configuraciones del canal
-    void setInviteOnly(bool status);
-    bool isInviteOnly() const;
+			// Configuraciones del canal
+			void setInviteOnly(bool status);
+			bool isInviteOnly() const;
 
-    void setTopicRestricted(bool status);
-    bool isTopicRestricted() const;
+			void setTopicRestricted(bool status);
+			bool isTopicRestricted() const;
 
-    void setKey(const std::string &key);
-    const std::string &getKey() const;
+			void setKey(const std::string &key);
+			const std::string &getKey() const;
 
-    void setUserLimit(size_t limit);
-    size_t getUserLimit() const;
-    std::string getChannelSize (int number) const;
+			void setUserLimit(size_t limit);
+			size_t getUserLimit() const;
+			std::string getChannelSize (int number) const;
 
-    void clearUserLimit();
-    std::set<Client *> clients;
-    std::set<Client *> operators;
-    std::set<Client *> invitedClients;
-private:
-    std::string name;
-    // Configuración del canal
-    bool inviteOnly;
-    bool topicRestricted;
-    std::string key;
-    size_t userLimit;
+			void clearUserLimit();
+			std::set<Client *> clients;
+			std::set<Client *> operators;
+			std::set<Client *> invitedClients;
+			std::string _topic;
+			bool inviteOnly;
+			bool topicRestricted;
+
+	private:
+			std::string name;
+			std::string key;
+			size_t userLimit;
 };
 
 #endif
