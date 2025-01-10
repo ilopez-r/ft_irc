@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/22 14:59:47 by ilopez-r          #+#    #+#             */
-/*   Updated: 2024/12/22 22:11:08 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/10 18:02:26 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -106,11 +106,11 @@ void Client::processLine(const std::string &rawInput, Server &server)
 	}
 	for (std::size_t i = 0; i < cmd.size(); i++)
 		cmd[i] = toupper(cmd[i]);
-	std::cout << "paramraw:" << paramraw << ".\n";
-	std::cout << "param:" << param << ".\n";
-	std::cout << "paramraw2:" << paramraw2 << ".\n";
-	std::cout << "param2:" << param2 << ".\n";
-	std::cout << "param3:" << param3 << ".\n";
+	std::cout << "[DEBUG] paramraw:" << paramraw << ".\n";
+	std::cout << "[DEBUG] param:" << param << ".\n";
+	std::cout << "[DEBUG] paramraw2:" << paramraw2 << ".\n";
+	std::cout << "[DEBUG] param2:" << param2 << ".\n";
+	std::cout << "[DEBUG] param3:" << param3 << ".\n";
 	handleCommand(cmd, param, paramraw2, param2, param3, server);
 }
 
@@ -132,6 +132,8 @@ void Client::handleCommand(const std::string &cmd, const std::string &param, con
 		server.commandNICK(this, param, param2);
 	else if (_nickname.empty())// Obligar a que haya un nickname para poder hacer el resto de comandos
 		messageToMyself("~ ERROR: First you have to use command 'NICK' and specify your nickname. Use: NICK <nickname>\n");
+	else if (cmd == "PROFILE")
+		server.commandPROFILE(this, param);
 	else if (cmd == "CHANNELS")// Sintaxis: CHANNELS [all]
 		server.commandCHANNELS(this, param, param2);
 	else if (cmd == "MSG")// Sintaxis: MSG <user/#channel> <message>
@@ -142,14 +144,20 @@ void Client::handleCommand(const std::string &cmd, const std::string &param, con
 		server.commandLEAVE(this, param, param2);
 	else if (cmd == "KICK")// Sintaxis: KICK <#channel> <user> <reason>
 		server.commandKICK(this, param, param2, param3);
+	else if (cmd == "BAN")// Sintaxis: BAN <#channel> <user> <reason>
+		server.commandBAN(this, param, param2, param3);
+	else if (cmd == "UNBAN")// Sintaxis: UNBAN <#channel> <user>
+		server.commandUNBAN(this, param, param2, param3);
 	else if (cmd == "INVITE")// Sintaxis: INVITE <#channel> <user> 
 		server.commandINVITE(this, param, param2, param3);
 	else if (cmd == "TOPIC")// Sintaxis: TOPIC <#channel> [new topic]
 		server.commandTOPIC(this, param, paramraw2);
 	else if (cmd == "KEY")// Sintaxis: KEY <#channel>
 		server.commandKEY(this, param, param2);
-	else if (cmd == "MODE")// Sintaxis: MODE <#channel> <+|-mode> [arg]
+	else if (cmd == "MODE")// Sintaxis: MODE <#channel> [+|-mode] [arg]
 		server.commandMODE(this, param, param2, param3);
+	else if (cmd == "REMOVE")// Sintaxis: REMOVE <#channel> <topic/modes/invited> 
+		server.commandREMOVE(this, param, param2, param3);
 	else
 		messageToMyself("~ Unknown command: " + cmd + "\n");
 }

@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/22 14:59:19 by ilopez-r          #+#    #+#             */
-/*   Updated: 2024/12/22 22:11:16 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/10 12:32:04 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -49,7 +49,6 @@ class Client
 			std::string _nickname;
 			std::string _username;
 			bool _passwordSent;
-			std::queue<std::string> messageQueue;
 			void handleCommand(const std::string &cmd, const std::string &param,  const std::string &paramraw2, const std::string &param2, const std::string &param3, Server &server);
 };
 

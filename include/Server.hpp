@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/22 15:00:10 by ilopez-r          #+#    #+#             */
-/*   Updated: 2024/12/22 20:46:22 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/10 17:58:36 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -46,15 +46,19 @@ class Server
 			void commandPASS(Client *client, const std::string &pass,  const std::string &other);
 			void commandUSER(Client *client, const std::string &username, const std::string &other);
 			void commandNICK(Client *client, const std::string &nickname, const std::string &other);
+			void commandPROFILE(Client *client, const std::string &param);
 			void commandCHANNELS(Client *client, const std::string &param, const std::string &other);
 			void commandMSG(Client *sender, const std::string &receiver, const std::string &message);
 			void commandJOIN(Client *client, const std::string &channelName, const std::string &key, const std::string &other);
 			void commandLEAVE(Client *client, const std::string &channelName, const std::string &other);
 			void commandKICK(Client *sender, const std::string &channelName, const std::string &user, const std::string &reason);
+			void commandBAN(Client *sender, const std::string &channelName, const std::string &user, const std::string &reason);
+			void commandUNBAN(Client *sender, const std::string &channelName, const std::string &user, const std::string &other);
 			void commandINVITE(Client *sender, const std::string &channelName, const std::string &user, const std::string &other);
 			void commandTOPIC(Client *sender, const std::string &channelName, const std::string &topic);
 			void commandKEY(Client *sender, const std::string &channelName, const std::string &other);
 			void commandMODE(Client *sender, const std::string &channelName, const std::string &mode, const std::string &param);
+			void commandREMOVE(Client *sender, const std::string &channelName, const std::string &user, const std::string &other);
 	private:
 			int port;
 			int serverSocket;

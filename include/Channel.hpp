@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/22 14:58:23 by ilopez-r          #+#    #+#             */
-/*   Updated: 2024/12/22 17:39:56 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/10 17:15:14 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -58,7 +58,11 @@ class Channel
 			void setUserLimit(size_t limit);
 			size_t getUserLimit() const;
 			std::string getChannelSize (int number) const;
+			std::string getModes() const;
 
+			void banClient(Client *client);
+			bool isBanned(Client *client) const;
+			void unbanClient(Client *client);
 			void clearUserLimit();
 			std::set<Client *> clients;
 			std::set<Client *> operators;
@@ -71,6 +75,7 @@ class Channel
 			std::string name;
 			std::string key;
 			size_t userLimit;
+			std::set<Client*> bannedClients;
 };
 
 #endif
