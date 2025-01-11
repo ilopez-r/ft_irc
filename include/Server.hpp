@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/22 15:00:10 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/10 17:58:36 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/11 21:46:05 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,17 +14,14 @@
 #define SERVER_HPP
 
 #include <iostream>
-#include <stdexcept>
 #include <cstring>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <algorithm>
-#include <string>
+#include <unistd.h> //Para close
+#include <arpa/inet.h> //Para los sockets
+#include <cstdlib> //Para atoi
 #include <map>
 #include <vector>
-#include <set>
+#include <sstream>
 #include <poll.h>
-#include <cctype>
 #include <fcntl.h>
 #include "Client.hpp"
 #include "Channel.hpp"
@@ -40,7 +37,6 @@ class Server
 			~Server();
 
 			void run();
-			static std::string trim(const std::string &str);
 			void commandQUIT(Client *client, const std::string &param);
 			void commandHELP(Client *client, const std::string &cmd, const std::string &other);
 			void commandPASS(Client *client, const std::string &pass,  const std::string &other);
@@ -55,6 +51,7 @@ class Server
 			void commandBAN(Client *sender, const std::string &channelName, const std::string &user, const std::string &reason);
 			void commandUNBAN(Client *sender, const std::string &channelName, const std::string &user, const std::string &other);
 			void commandINVITE(Client *sender, const std::string &channelName, const std::string &user, const std::string &other);
+			void commandUNINVITE(Client *sender, const std::string &channelName, const std::string &user, const std::string &other);
 			void commandTOPIC(Client *sender, const std::string &channelName, const std::string &topic);
 			void commandKEY(Client *sender, const std::string &channelName, const std::string &other);
 			void commandMODE(Client *sender, const std::string &channelName, const std::string &mode, const std::string &param);
@@ -63,7 +60,7 @@ class Server
 			int port;
 			int serverSocket;
 			std::vector<pollfd> pollFds;
-			std::string design;
+			std::string _design;
 			std::string _password;
 			std::map<int, Client*> clients;
 			std::map<std::string, Channel> channels;
@@ -71,6 +68,7 @@ class Server
 			void initializeServer();
 			void acceptNewClient();
 			void handleClientMessage(int clientFd);
+			std::string to_string (int number) const;
 };
 
 #endif

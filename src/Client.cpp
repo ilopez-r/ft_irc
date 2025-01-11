@@ -6,27 +6,34 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/22 14:59:47 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/10 18:02:26 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/11 20:59:03 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../include/Client.hpp"
 
-Client::Client(int fd, const std::string &ip): fd(fd), ip(ip), _nickname(""), _username (""), _passwordSent(false) {}
+Client::Client(int fd, const std::string &ip)
+{
+	_fd = fd;
+	_ip = ip;
+	_nickname = "";
+	_username = "";
+	_passwordSent = false;
+}
 
 Client::~Client()
 {
-	close(fd);
+	close(_fd);
 }
 
 int Client::getFd() const
 {
-	return (fd);
+	return (_fd);
 }
 
 std::string &Client::getBuffer()
 {
-	return (buffer);
+	return (_buffer);
 }
 
 const std::string &Client::getNickname() const
@@ -60,21 +67,31 @@ bool Client::getPasswordSent()
 
 void Client::messageToSomeone(const std::string &message, Client *receiver)
 {
-	if (send(fd, message.c_str(), message.size(), 0) < 0)
-		std::cerr << "Failed to send message to sender: " << fd << "\n";
+	if (send(_fd, message.c_str(), message.size(), 0) < 0)
+		std::cerr << "Failed to send message to sender: " << _fd << "\n";
 	if (send(receiver->getFd(), message.c_str(), message.size(), 0) < 0)
-		std::cerr << "Failed to send message to receiver: " << fd << "\n";
+		std::cerr << "Failed to send message to receiver: " << _fd << "\n";
 }
 
 void Client::messageToMyself(const std::string &message)
 {
-	if (send(fd, message.c_str(), message.size(), 0) < 0)
-		std::cerr << "Failed to send message to client: " << fd << "\n";
+	if (send(_fd, message.c_str(), message.size(), 0) < 0)
+		std::cerr << "Failed to send message to client: " << _fd << "\n";
+}
+
+std::string Client::trim(const std::string &str)
+{
+	size_t start = str.find_first_not_of(" \t\r\n");
+	size_t end = str.find_last_not_of(" \t\r\n");
+	if (start == std::string::npos)
+		return ("");
+	else
+		return (str.substr(start, end - start + 1));
 }
 
 void Client::processLine(const std::string &rawInput, Server &server)
 {
-	std::string line = server.trim(rawInput);
+	std::string line = trim(rawInput);
 	if (line.empty())
 		return; // No hacer nada si la línea está vacía.
 	// Separar el mensaje en 3 partes.
@@ -87,18 +104,18 @@ void Client::processLine(const std::string &rawInput, Server &server)
 	std::string param3 = "";
 	if (spacePos != std::string::npos)//Si encuentra el espacio
 	{
-		paramraw =  server.trim(line.substr(spacePos + 1));
+		paramraw =  trim(line.substr(spacePos + 1));
 		spacePos = paramraw.find(' ');
 		if (spacePos != std::string::npos)//Si encuentra el espacio
 		{
 			param = paramraw.substr(0, spacePos);
 			if (spacePos != std::string::npos)
 			{
-				paramraw2 = server.trim(paramraw.substr(spacePos + 1));
+				paramraw2 = trim(paramraw.substr(spacePos + 1));
 				spacePos = paramraw2.find(' ');
 				param2 = paramraw2.substr(0, spacePos);
 				if (spacePos != std::string::npos)
-					param3 = server.trim(paramraw2.substr(spacePos + 1));
+					param3 = trim(paramraw2.substr(spacePos + 1));
 			}
 		}
 		else
@@ -150,13 +167,15 @@ void Client::handleCommand(const std::string &cmd, const std::string &param, con
 		server.commandUNBAN(this, param, param2, param3);
 	else if (cmd == "INVITE")// Sintaxis: INVITE <#channel> <user> 
 		server.commandINVITE(this, param, param2, param3);
+	else if (cmd == "UNINVITE")// Sintaxis: UNINVITE <#channel> <user> 
+		server.commandUNINVITE(this, param, param2, param3);
 	else if (cmd == "TOPIC")// Sintaxis: TOPIC <#channel> [new topic]
 		server.commandTOPIC(this, param, paramraw2);
 	else if (cmd == "KEY")// Sintaxis: KEY <#channel>
 		server.commandKEY(this, param, param2);
 	else if (cmd == "MODE")// Sintaxis: MODE <#channel> [+|-mode] [arg]
 		server.commandMODE(this, param, param2, param3);
-	else if (cmd == "REMOVE")// Sintaxis: REMOVE <#channel> <topic/modes/invited> 
+	else if (cmd == "REMOVE")// Sintaxis: REMOVE <#channel> <topic/modes/invited/banned> 
 		server.commandREMOVE(this, param, param2, param3);
 	else
 		messageToMyself("~ Unknown command: " + cmd + "\n");

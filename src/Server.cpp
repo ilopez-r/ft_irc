@@ -1,13 +1,13 @@
 /* ************************************************************************** */
-/*																			*/
-/*														:::	  ::::::::   */
-/*   Server.cpp										 :+:	  :+:	:+:   */
-/*													+:+ +:+		 +:+	 */
-/*   By: ilopez-r <ilopez-r@student.42malaga.com	+#+  +:+	   +#+		*/
-/*												+#+#+#+#+#+   +#+		   */
-/*   Created: 2025/01/10 14:36:53 by ilopez-r		  #+#	#+#			 */
-/*   Updated: 2025/01/10 16:10:36 by ilopez-r		 ###   ########.fr	   */
-/*																			*/
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   Server.cpp                                         :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/01/11 12:28:54 by ilopez-r          #+#    #+#             */
+/*   Updated: 2025/01/11 21:18:34 by ilopez-r         ###   ########.fr       */
+/*                                                                            */
 /* ************************************************************************** */
 
 #include "../include/Server.hpp"
@@ -15,7 +15,7 @@
 Server::Server(int port, const std::string &password): port(port), _password(password)
 {
 	initializeServer();
-	design =
+	_design =
 		"  ______ _	   __		  __	  _____   __		   ___\n"
 		" |  ____| |	  \\ \\		/ /\\	/ ____| /_/		  |__ \\ \n"
 		" | |__  | |	   \\ \\  /\\  / /  \\  | (___   / \\			 ) |\n"
@@ -113,7 +113,7 @@ void Server::acceptNewClient()
 
 	clients[clientFd] = new Client(clientFd, inet_ntoa(clientAddr.sin_addr));
 	std::cout << "New client connected: (" << clientFd << ")\n";
-	clients[clientFd]->messageToMyself(design + "Welcome to the IRC Server!\nType HELP to show the instructions\n");
+	clients[clientFd]->messageToMyself(_design + "Welcome to the IRC Server!\nType HELP to show the instructions\n");
 }
 
 void Server::handleClientMessage(int clientFd)
@@ -140,15 +140,13 @@ void Server::handleClientMessage(int clientFd)
 	}
 }
 
-std::string Server::trim(const std::string &str)
+std::string Server::to_string (int number) const
 {
-	size_t start = str.find_first_not_of(" \t\r\n");
-	size_t end = str.find_last_not_of(" \t\r\n");
-	if (start == std::string::npos)
-		return ("");
-	else
-		return (str.substr(start, end - start + 1));
+	std::ostringstream oss;
+	oss << number;
+	return (oss.str());
 }
+
 void Server::commandQUIT(Client *client, const std::string &param)
 {
 	if (!param.empty())// Verificar ningun otra palabara detras de QUIT
@@ -158,7 +156,7 @@ void Server::commandQUIT(Client *client, const std::string &param)
 		Channel &channel = it->second;
 		std::string channelName = it->first;
 		if (channel.isInvited(client))//Eliminar al cliente de la lista de invitados si lo estaba (esto se hace ya que si entra otro con un fd invitado, sigue invitado)
-			channel.invitedClients.erase(client);
+			channel.removeInvitedClient(client);
 		if (channel.isBanned(client))//Eliminar al cliente de la lista de baneados si lo estaba (esto se hace ya que si entra otro con un fd baneado, sigue baneado)
 			channel.unbanClient(client);
 		if (channel.hasClient(client))
@@ -236,6 +234,9 @@ void Server::commandHELP(Client *client, const std::string &cmd, const std::stri
 	std::string INVITE = "~ INVITE <#channel> <user>: For operators. Invite a user to a channel\n";
 	if (cmdUpper == "INVITE")
 		return(client->messageToMyself(INVITE));
+	std::string UNINVITE = "~ UNINVITE <#channel> <user>: For operators. Uninvite a user to a channel\n";
+	if (cmdUpper == "UNINVITE")
+		return(client->messageToMyself(UNINVITE));
 	std::string TOPIC = "~ TOPIC <#channel> [new topic]: Show or set (if you add <new topic> and you are operator) a topic for a channel\n";
 	if (cmdUpper == "TOPIC")
 		return(client->messageToMyself(TOPIC));
@@ -250,12 +251,12 @@ void Server::commandHELP(Client *client, const std::string &cmd, const std::stri
 						"	* +|- l: Set/remove the user limit to a channel\n";
 	if (cmdUpper == "MODE")
 		return(client->messageToMyself(MODE));
-	std::string REMOVE = "~ REMOVE <#channel> <topic/modes/invited>: For operators. Remove topic, modes or the clients invited list from a channel\n";
+	std::string REMOVE = "~ REMOVE <#channel> <topic/modes/invited/banned>: For operators. Remove topic, modes or the clients invited/banned list from a channel\n";
 	if (cmdUpper == "REMOVE")
 		return(client->messageToMyself(REMOVE));
 	std::string HELP = "~ HELP [cmd]: Show instructions. Type a command <cmd> to see only its instructions\n";
 	if (cmdUpper == "")
-		return(client->messageToMyself(QUIT + PASS + USER + NICK + PROFILE + CHANNELS + MSG + JOIN + LEAVE + KICK + BAN + UNBAN + INVITE + TOPIC + KEY + MODE + REMOVE + HELP));
+		return(client->messageToMyself(QUIT + PASS + USER + NICK + PROFILE + CHANNELS + MSG + JOIN + LEAVE + KICK + BAN + UNBAN + INVITE + UNINVITE + TOPIC + KEY + MODE + REMOVE + HELP));
 	return(client->messageToMyself("~ ERROR: Command '" + cmdUpper + "' is not an existing command. Use: HELP [cmd]\n"));
 }
 
@@ -346,14 +347,14 @@ void Server::commandCHANNELS(Client *client, const std::string &param, const std
 			client->messageToMyself("	* " + channelName);
 			if (!channel.getModes().empty())// Mostrar los modos activos solo si hay alguno
 				client->messageToMyself("[" + channel.getModes() + "]");
-			if (!channel._topic.empty()) //Mostrar el topic si no está vacío
-				client->messageToMyself("[Topic: " + channel._topic + "]");
-			client->messageToMyself("(" + channel.getChannelSize(channel.clients.size()) + " member(s)): ");
-			for (std::set<Client *>::iterator clientIt = channel.clients.begin(); clientIt != channel.clients.end(); ++clientIt)//Recorrer todos los clientes que hay en ese canal
+			if (!channel.isTopicEmpty()) //Mostrar el topic si no está vacío
+				client->messageToMyself("[Topic: " + channel.getTopic() + "]");
+			client->messageToMyself("(" + to_string(channel.getClientsNumber()) + " member(s)): ");
+			for (std::set<Client *>::iterator clientIt = channel.getClients().begin(); clientIt != channel.getClients().end(); ++clientIt)//Recorrer todos los clientes que hay en ese canal
 			{
 				std::set<Client *>::iterator nextIt = clientIt; 
 				++nextIt;//Nos guardamos el siguiente del cliente al que estamos comprobando, para poder ver si es el ultimo que queda del canal por mostrar
-				if (nextIt == channel.clients.end())//Si es el ultimo, salto de linea
+				if (nextIt == channel.getClients().end())//Si es el ultimo, salto de linea
 					client->messageToMyself((*clientIt)->getNickname() + "\n");
 				else//Si no es el ultimo, ponemos una coma
 					client->messageToMyself((*clientIt)->getNickname() + ", ");
@@ -377,14 +378,14 @@ void Server::commandCHANNELS(Client *client, const std::string &param, const std
 				client->messageToMyself("	* " + channelName);
 				if (!channel.getModes().empty())// Mostrar los modos activos solo si hay alguno
 					client->messageToMyself("[" + channel.getModes() + "]");
-				if (!channel._topic.empty()) //Mostrar el topic si no está vacío
-					client->messageToMyself("[Topic: " + channel._topic + "]");
-				client->messageToMyself("(" + channel.getChannelSize(channel.clients.size()) + " member(s)): ");
-				if (channel.clients.size() == 1)
+				if (!channel.isTopicEmpty()) //Mostrar el topic si no está vacío
+					client->messageToMyself("[Topic: " + channel.getTopic() + "]");
+				client->messageToMyself("(" + to_string(channel.getClientsNumber()) + " member(s)): ");
+				if (channel.getClientsNumber() == 1)
 					client->messageToMyself(client->getNickname() + "\n");
 				else
 				{
-					for (std::set<Client *>::iterator clientIt = channel.clients.begin(); clientIt != channel.clients.end(); ++clientIt)
+					for (std::set<Client *>::iterator clientIt = channel.getClients().begin(); clientIt != channel.getClients().end(); ++clientIt)
 					{
 						if ((*clientIt)->getNickname() != client->getNickname())
 						{
@@ -392,9 +393,9 @@ void Server::commandCHANNELS(Client *client, const std::string &param, const std
 							++nextIt;
 							std::set<Client *>::iterator nextnextIt = nextIt;
 							++nextnextIt;
-							if (nextIt == channel.clients.end() || ((*nextIt)->getNickname() == client->getNickname() && nextnextIt == channel.clients.end()))
+							if (nextIt == channel.getClients().end() || ((*nextIt)->getNickname() == client->getNickname() && nextnextIt == channel.getClients().end()))
 								client->messageToMyself((*clientIt)->getNickname() + " and " + client->getNickname() + "\n");
-							else if (nextIt != channel.clients.end())
+							else if (nextIt != channel.getClients().end())
 								client->messageToMyself((*clientIt)->getNickname() + ", ");
 						}
 					}
@@ -444,36 +445,35 @@ void Server::commandJOIN(Client *client, const std::string &channelName, const s
 		return(client->messageToMyself("~ ERROR: Channel name cannot be empty\n"));
 	if (!other.empty())
 		return(client->messageToMyself("~ ERROR: Command 'JOIN' does not accept any more parameters than #CHANNEL and KEY. Use: JOIN <#channel> [key]\n"));
-	std::map<std::string, Channel>::iterator it = channels.find(channelName);
-	Channel &channel = it->second;
-	if (it == channels.end())// Si el canal no existe, se crea y se asigna al cliente como operador.
+	if (channels.find(channelName) == channels.end())// Comprueba si el canal no existe en el contenedor channels
 	{
-		channels[channelName] = Channel(channelName);
-		Channel &channel = channels[channelName];
+		channels.insert(std::make_pair(channelName, Channel(channelName)));// Crea el canal con su nombre y un objeto de la clase channel (utilizando el constructor), y lo inserta en el contendor channels
+        Channel &channel = channels.find(channelName)->second;// Accede al canal (->second es el objeto de la clase channel)
 		channel.addClient(client);//Añadir al cliente al canal
 		channel.addOperator(client); // Cliente se convierte en operador inicial.
 		std::cout << "Client (" << client->getFd() << ") '" << client->getNickname() << "' created and joined channel: " << channelName << "\n";//Mensaje en servidor
 		client->messageToMyself("~ You have created and joined channel: " + channelName + "\n");//Mensaje al cliente
-		if (key != "")//Si se puso algo detrás de #channel
+		if (!key.empty())//Si se puso algo detrás de #channel
 			client->messageToMyself("~ Channel: " + channelName + " does not need a key to enter\n");//Mensaje al cliente
 		return;
 	}
 	// Si el canal ya existe
+	Channel &channel = channels.find(channelName)->second;// Accede al canal (->second es el objeto de la clase channel)
 	if (channel.hasClient(client))// Comprobar si el cliente ya está en el canal
 		return(client->messageToMyself("~ ERROR: You are already in channel: " + channelName + "\n"));
 	if (channel.isBanned(client))// Verificar si el cliente está baneado
 		return(client->messageToMyself("~ ERROR: You are banned in channel: " + channelName + "\n"));
 	if (channel.isInviteOnly() && !channel.isInvited(client))// Si el canal está en modo invite-only, verificar si el cliente ha sido invitado
 		return(client->messageToMyself("~ ERROR: Channel: " + channelName + " is on INVITE-ONLY mode\n"));
-	if (channel.getUserLimit() > 0 && channel.getUserLimit() <= channel.clients.size())// Comprobar si hay límite de usuarios y si ya se ha alcanzado el máximo
+	if (channel.getUserLimit() > 0 && channel.getUserLimit() <= channel.getClientsNumber())// Comprobar si hay límite de usuarios y si ya se ha alcanzado el máximo
 		return(client->messageToMyself("~ ERROR: Channel: " + channelName + " is full\n"));
-	if (channel.getKey() == "" && key != "")//Si no esta en modo key y yo he puesto una contraseña
+	if (channel.getKey().empty() && !key.empty())//Si no esta en modo key y yo he puesto una contraseña
 		client->messageToMyself("~ Channel: " + channelName + " does not need a key to enter\n");
-	if (channel.getKey() != "" && key != "" && channel.isInvited(client))//Si esta en modo key y yo he puesto una key, pero estoy invitado
+	if (!channel.getKey().empty() && !key.empty() && channel.isInvited(client))//Si esta en modo key y yo he puesto una key, pero estoy invitado
 		client->messageToMyself("~ You do not need a key to enter in channel: " + channelName + " beacause you are invited\n");
-	if (channel.getKey() != "" && !channel.isInvited(client))// Comprobar si el canal está en modo key y no estoy invitado
+	if (!channel.getKey().empty() && !channel.isInvited(client))// Comprobar si el canal está en modo key y no estoy invitado
 	{
-		if (key == "")//Si no he puesto ninguna key
+		if (key.empty())//Si no he puesto ninguna key
 			return(client->messageToMyself("~ ERROR: Channel: " + channelName + " is in KEY mode. Use: JOIN <#channel> <key>\n"));
 		if (key != channel.getKey())//Si la key es incorrecta
 			return(client->messageToMyself("~ ERROR: Incorrect key\n"));
@@ -498,19 +498,21 @@ void Server::commandLEAVE(Client *client, const std::string &channelName, const 
 		return(client->messageToMyself("~ ERROR: ERROR: Channel " + channelName + " does not exist\n"));
 	if (!channel.hasClient(client))//Comprobar si el cliente está dentro del canal
 		return(client->messageToMyself("~ ERROR: You are not in channel: " + channelName + "\n"));
+	if (channel.isOperator(client))//Elimiar al usuario de la lista de operadores del canal si lo estaba
+		channel.removeOperator(client);
 	channel.removeClientChannnel(client);
 	std::cout << "Client (" << client->getFd() << ") '" << client->getNickname() << "' left channel: " << channelName << "\n";
 	client->messageToMyself("~ You left channel: " + channelName + "\n");
 	channel.messageToGroupNoSender("~ '" + client->getNickname() + "' left channel: " + channelName + "\n", client);
-	if (channel.operators.size() == 0 && channel.clients.size() > 0)// Si no hay operadores pero quedan clientes dentro del canal, asignar el operador al cliente más antiguo
+	if (channel.getOperatorsNumber() == 0 && channel.getClientsNumber() > 0)// Si no hay operadores pero quedan clientes dentro del canal, asignar el operador al cliente más antiguo
 	{
-		Client *firstClient = *channel.clients.begin();//Guardamos el cliente que hay en el principio del contenedor del canal
-		channel.operators.insert(*channel.clients.begin());//Lo insertamos en el contenedor de operadores
+		Client *firstClient = *channel.getClients().begin();//Guardamos el cliente que hay en el principio del contenedor del canal
+		channel.addOperator(*channel.getClients().begin());//Lo insertamos en el contenedor de operadores
 		std::cout << "Client (" << firstClient->getFd() << ") '" << firstClient->getNickname() << "' is now an operator in channel: " << channelName << "\n";
 		firstClient->messageToMyself("~ You are now an operator in channel: " + channelName + "\n");
 		channel.messageToGroupNoSender("~ '" + firstClient->getNickname() + "' is now an operator in channel: " + channelName + "\n", firstClient);
 	}
-	if (channel.clients.size() == 0)//Si no hay nadie más en el canal, eliminar canal
+	if (channel.getClientsNumber() == 0)//Si no hay nadie más en el canal, eliminar canal
 	{
 		std::cout << "Channel: " << channelName << " was removed\n";
 		channels.erase(it);
@@ -538,9 +540,11 @@ void Server::commandKICK(Client *sender, const std::string &channelName, const s
 		{
 			if (channel.hasClient(client))//Si el usuario al que se kickea está dentro del canal
 			{
-				channel.removeClientChannnel(client);//Eliminar al usuario del canal
 				if (channel.isInvited(client))//Eliminar al usuario de la lista de invitados del canal si lo estaba
-					channel.invitedClients.erase(client);
+					channel.removeInvitedClient(client);
+				if (channel.isOperator(client))//Elimiar al usuario de la lista de operadores del canal si lo estaba
+					channel.removeOperator(client);
+				channel.removeClientChannnel(client);//Eliminar al usuario del canal
 				std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' has kicked Client (" << client->getFd() << ") '" << client->getNickname() << "' from channel " << channelName << "\n";
 				channel.messageToGroupNoSender("~ '" + user + "' has been kicked by '" + sender->getNickname() + "' from channel " + channelName + "\n", sender);
 				sender->messageToMyself("~ You have kicked '" + user + "' from " + channelName + "\n");
@@ -574,10 +578,12 @@ void Server::commandBAN(Client *sender, const std::string &channelName, const st
 		{
 			if (channel.isBanned(client))// Verificar si ya está baneado
 				return(sender->messageToMyself("~ ERROR: User '" + user + "' is already banned in " + channelName + ".\n"));
+			if (channel.isInvited(client))//Eliminar al usuario de la lista de invitados del canal si lo estaba
+				channel.removeInvitedClient(client);
+			if (channel.isOperator(client))//Elimiar al usuario de la lista de operadores del canal si lo estaba
+				channel.removeOperator(client);
 			if (channel.hasClient(client))//Eliminar al usuario del canal si está dentro
 				channel.removeClientChannnel(client);
-			if (channel.isInvited(client))//Eliminar al usuario de la lista de invitados del canal si lo estaba
-				channel.invitedClients.erase(client);
 			channel.banClient(client);// Banear al usuario
 			std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' has banned Client (" << client->getFd() << ") '" << client->getNickname() << "' from channel " << channelName << "\n";
 			channel.messageToGroupNoSender("~ '" + user + "' has been banned by '" + sender->getNickname() + "' from channel " + channelName + "\n", sender);
@@ -602,7 +608,7 @@ void Server::commandUNBAN(Client *sender, const std::string &channelName, const 
 		return(sender->messageToMyself("~ ERROR: You are not in channel: " + channelName + "\n"));
 	if (!channel.isOperator(sender))//Comprobar si soy operador
 		return(sender->messageToMyself("~ ERROR: You are not an operator of channel: " + channelName + ".\n"));
-	if (user == sender->getNickname())//Verificar que no me este unbaneando a mi mismo
+	if (user == sender->getNickname())//Verificar que no me este desbaneando a mi mismo
 		return(sender->messageToMyself("~ ERROR: You cannot unban yourself ('" + sender->getNickname() + "') from a channel\n"));
 	for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt)//Bucle para recorrer todos los clientes que hay conectados al servidor
 	{
@@ -637,13 +643,15 @@ void Server::commandINVITE(Client *sender, const std::string &channelName, const
 		return(sender->messageToMyself("~ ERROR: You are not an operator of channel: " + channelName + ".\n"));
 	if (user == sender->getNickname())//Verificar que no me este invitando a mi mismo
 		return(sender->messageToMyself("~ ERROR: You cannot invite yourself ('" + sender->getNickname() + "') to a channel\n"));
-	if (channel.getUserLimit() > 0 && channel.getUserLimit() <= channel.clients.size())//Verificar si el canal esta lleno
+	if (channel.getUserLimit() > 0 && channel.getUserLimit() <= channel.getClientsNumber())//Verificar si el canal esta lleno
 		return(sender->messageToMyself("~ ERROR: Channel: " + channelName + " is already full\n"));
 	for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt)//Bucle para recorrer todos los clientes que hay conectados al servidor
 	{
 		Client *client = clientIt->second;
-		if (client->getNickname() == user)//Si el cliente coincide con el usuario al que se va a invitar/kickear
+		if (client->getNickname() == user)//Si el cliente coincide con el usuario al que se va a invitar
 		{
+			if (channel.isInvited(client))//Verificar si ya está en la lista de invitados
+				return(sender->messageToMyself("~ ERROR: User '" + user + "' is already in the clients invited list in channel: " + channelName + "\n"));
 			if (!channel.hasClient(client))//Si el usuario al que se invita no esta ya dentro del canal
 			{
 				channel.inviteClient(client);//Invitar al usuario al canal
@@ -651,11 +659,43 @@ void Server::commandINVITE(Client *sender, const std::string &channelName, const
 				sender->messageToMyself("~ You invited '" + user + "' to channel: " + channelName + ".\n");
 				return(client->messageToMyself("~ '" + sender->getNickname() + "' invited you to channel: " + channelName + ". Use: JOIN <#channel> [key]\n"));
 			}
-			else//Si no se cumple ninguna de las dos, ese usuario ya estaba dentro del canal (si es invite) o ya estaba fuera del canal (si es kick)
+			else//Si no se cumple, ese usuario ya estaba dentro del canal
 				return(sender->messageToMyself("~ ERROR: User '" + user + "' is already in channel: " + channelName + "\n"));
 		}
 	}
 	sender->messageToMyself("~ ERROR: User '" + user + "' does not exist\n"); //El usuario no esta en el servidor
+}
+
+void Server::commandUNINVITE(Client *sender, const std::string &channelName, const std::string &user, const std::string &other)
+{
+	if (channelName.empty() || user.empty())//Verificar que ninguno de los parametros este vacio
+		return(sender->messageToMyself("~ ERROR: Invalid UNINVITE command syntax. Use: UNINVITE <user> <#channel>\n"));
+	if (!other.empty())//Verificar ningun otra palabara detras de <user>
+		return(sender->messageToMyself("~ ERROR: Command 'UNINVITE' does not accept any more parameters than CHANNEL and USER. Use: UNINVITE <#channel> <user>\n"));
+	std::map<std::string, Channel>::iterator it = channels.find(channelName);
+	Channel &channel = it->second;
+	if (it == channels.end())//Comprobar si el canal existe
+		return(sender->messageToMyself("~ ERROR: Channel: " + channelName + " does not exist\n"));
+	if (!channel.hasClient(sender))//Comprobar si estoy está dentro del canal
+		return(sender->messageToMyself("~ ERROR: You are not in channel: " + channelName + "\n"));
+	if (!channel.isOperator(sender))//Comprobar si soy operador
+		return(sender->messageToMyself("~ ERROR: You are not an operator of channel: " + channelName + ".\n"));
+	if (user == sender->getNickname())//Verificar que no me este invitando a mi mismo
+		return(sender->messageToMyself("~ ERROR: You cannot invite yourself ('" + sender->getNickname() + "') to a channel\n"));
+	for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt)//Bucle para recorrer todos los clientes que hay conectados al servidor
+	{
+		Client *client = clientIt->second;
+		if (client->getNickname() == user)//Si el cliente coincide con el usuario al que se va a invitar
+		{
+			if (!channel.isInvited(client))//Verificar si no está en la lista de invitados
+				return(sender->messageToMyself("~ ERROR: User '" + user + "' is not in the clients invited list in channel: " + channelName + "\n"));
+			channel.removeInvitedClient(client);//Eliminar al usuario de la lista de invitados del canal
+			std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' uninvited Client (" << client->getFd() << ") '" << client->getNickname() << "' to channel: " << channelName << "\n";
+			sender->messageToMyself("~ You uninvited '" + user + "' to channel: " + channelName + ".\n");
+			return(client->messageToMyself("~ '" + sender->getNickname() + "' uninvited you to channel: " + channelName + ". You are not in the invited list anymore\n"));
+		}
+	}
+	sender->messageToMyself("~ ERROR: User '" + user + "' does not exist\n"); //El usuario no está en el servidor
 }
 
 void Server::commandTOPIC(Client *sender, const std::string &channelName, const std::string &topic)
@@ -668,9 +708,9 @@ void Server::commandTOPIC(Client *sender, const std::string &channelName, const 
 	Channel &channel = it->second;
 	if (topic.empty())//Comprobar si solamente quiero ver el topic
 	{
-		if (channel._topic.empty())//Comprobar si el canal no tiene topic
+		if (channel.isTopicEmpty())//Comprobar si el canal no tiene topic
 			return(sender->messageToMyself("~ Channel: " + channelName + " has no TOPIC yet\n"));
-		return(sender->messageToMyself("~ Current TOPIC for channel: " + channelName + " is '" + channel._topic + "'\n"));
+		return(sender->messageToMyself("~ Current TOPIC for channel: " + channelName + " is '" + channel.getTopic() + "'\n"));
 	}
 	if (!channel.hasClient(sender))//Comprobar si estoy está dentro del canal
 		return(sender->messageToMyself("~ ERROR: You are not in channel: " + channelName + "\n"));
@@ -678,16 +718,16 @@ void Server::commandTOPIC(Client *sender, const std::string &channelName, const 
 		return(sender->messageToMyself("~ ERROR: You are not allowed to change the topic in channel: " + channelName + ". Channel is in MODE +t and you are not an operator\n"));
 	if (topic == "REMOVE" || topic == "remove")// Eliminar el tema del canal
 	{
-		if (channel._topic == "")//Comprobar si estoy intentando eliminar el topic en un canal que no tiene topic
+		if (channel.getTopic() == "")//Comprobar si estoy intentando eliminar el topic en un canal que no tiene topic
 			return(sender->messageToMyself("~ ERROR: Channel: " + channelName + " has no TOPIC\n"));
-		channel._topic = "";
+		channel.setTopic("");
 		std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' removed TOPIC in channel: " << channelName << "\n";
 		sender->messageToMyself("~ You removed TOPIC in channel: " + channelName + "\n");
 		return(channel.messageToGroupNoSender("~ '" + sender->getNickname() + "' removed TOPIC in channel: " + channelName + "\n", sender));
 	}
-	if (channel._topic == topic)//Comprobar si estoy intentando poner un topic en un canal que ya tiene ese mismo topic
+	if (channel.getTopic() == topic)//Comprobar si estoy intentando poner un topic en un canal que ya tiene ese mismo topic
 			return(sender->messageToMyself("~ ERROR: TOPIC in channel: " + channelName + " is already '" + topic + "'\n"));
-	channel._topic = topic;
+	channel.setTopic(topic);
 	std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' changed TOPIC to '" << topic << "' in channel: " << channelName << "\n";
 	sender->messageToMyself("~ You changed TOPIC to '" + topic + "' in channel: " + channelName + "\n");
 	channel.messageToGroupNoSender("~ '" + sender->getNickname() + "' changed TOPIC to '" + topic + "' in channel: " + channelName + "\n", sender);
@@ -748,7 +788,7 @@ void Server::commandMODE(Client *sender, const std::string &channelName, const s
 				{
 					if (channel.isOperator(client))
 						return(sender->messageToMyself("~ ERROR: '" + param + "' is already an operator in channel: " + channelName + "\n"));
-					channel.addOperator(clientIt->second);
+					channel.addOperator(client);
 					std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' gave operator privileges to '" << param << "' in channel: " << channelName << "\n";
 					sender->messageToMyself("~ You gave OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n");
 					channel.messageToGroupNoSenderNoReceiver("~ '" + sender->getNickname() + "' gave OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n", sender, client);
@@ -774,7 +814,7 @@ void Server::commandMODE(Client *sender, const std::string &channelName, const s
 				{
 					if (!channel.isOperator(client))
 						return(sender->messageToMyself("~ ERROR: '" + param + "' is not an operator in channel: " + channelName + "\n"));
-					channel.removeOperator(clientIt->second);
+					channel.removeOperator(client);
 					std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' removed operator privileges to '" << param << "' in channel: " << channelName << "\n";
 					sender->messageToMyself("~ You removed OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n");
 					channel.messageToGroupNoSenderNoReceiver("~ '" + sender->getNickname() + "' removed OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n", sender, client);
@@ -787,11 +827,14 @@ void Server::commandMODE(Client *sender, const std::string &channelName, const s
 		sender->messageToMyself("~ ERROR: User '" + param + "' does not exist\n");
 
 	}
-	else if (mode == "+i") //Establecer solo invitados pueden unirse al canal
+	else if (mode == "+i")//Establecer solo invitados pueden unirse al canal
 	{
 		if (channel.inviteOnly == true)
 			return(sender->messageToMyself("~ ERROR: Channel: " + channelName + " is already on INVITE-ONLY mode\n"));
 		channel.setInviteOnly(true);
+		for (std::set<Client *>::iterator itClient = channel.getClients().begin(); itClient != channel.getClients().end(); ++itClient)// Agregar a todos los clientes actuales a la lista de invitados
+			if (!channel.isInvited(*itClient))// Verifica si ya está invitado
+				channel.inviteClient(*itClient);// Agrega a la lista de invitados
 		sender->messageToMyself("~ You enabled INVITE-ONLY mode in channel: " + channelName + "\n");
 		channel.messageToGroupNoSender("~ '" + sender->getNickname() + "' enabled INVITE-ONLY mode in channel: " + channelName + "\n", sender);
 		std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' enabled invite-only mode in channel: " << channelName << "\n";
@@ -838,9 +881,9 @@ void Server::commandMODE(Client *sender, const std::string &channelName, const s
 	}
 	else if (mode == "-k")//Eliminar contraseña del canal
 	{
-		if(channel.getKey() == "")
+		if(channel.isKeyEmpty())
 			return(sender->messageToMyself("~ ERROR: Channel: " + channelName + " is not on KEY mode\n"));
-		channel.setKey("");
+		channel.clearKey();
 		sender->messageToMyself("~ You disabled KEY mode in channel: " + channelName + "\n");
 		channel.messageToGroupNoSender("~ '" + sender->getNickname() + "' disabled KEY mode in channel: " + channelName + "\n", sender);
 		std::cout << "Client (" << sender->getFd() << ") '" << sender->getNickname() << "' disabled key mode in channel: " << channelName << "\n";
@@ -851,12 +894,12 @@ void Server::commandMODE(Client *sender, const std::string &channelName, const s
 			return(sender->messageToMyself("~ ERROR: You need to specify a number for MODE +l\n"));
 		for (std::size_t i = 0; i < param.size(); i++)
 			if (!std::isdigit(param[i]))
-				return(sender->messageToMyself("~ ERROR: Limit cannot be something different from a number\n"));
+				return(sender->messageToMyself("~ ERROR: Limit cannot be something different from a positive number\n"));
 		size_t limit = std::atoi(param.c_str());
 		if (limit == 0 || limit == 1)
 			return(sender->messageToMyself("~ ERROR: Limit cannot be less than 2\n"));
-		if (limit < channel.clients.size())
-			return(sender->messageToMyself("~ ERROR: Limit cannot be less than the channel's users actual number (" + channel.getChannelSize(channel.clients.size()) + ")\n"));
+		if (limit < channel.getClientsNumber())
+			return(sender->messageToMyself("~ ERROR: Limit cannot be less than the channel's actual number of members (" + to_string(channel.getClientsNumber()) + ")\n"));
 		if (limit == channel.getUserLimit())
 			return(sender->messageToMyself("~ ERROR: Channel: " + channelName + " is already limited to " + param + "\n"));
 		channel.setUserLimit(limit);
@@ -880,9 +923,9 @@ void Server::commandMODE(Client *sender, const std::string &channelName, const s
 void Server::commandREMOVE(Client *sender, const std::string &channelName, const std::string &param, const std::string &other)
 {
 	if (channelName.empty() || param.empty())//Verificar que ninguno de los parametros este vacio
-		return(sender->messageToMyself("~ ERROR: Invalid REMOVE command syntax. Use: REMOVE <#channel> <topic/modes/invited>\n"));
+		return(sender->messageToMyself("~ ERROR: Invalid REMOVE command syntax. Use: REMOVE <#channel> <topic/modes/invited/banned>\n"));
 	if (!other.empty())//Verificar ningun otra palabara detras de <param>
-		return(sender->messageToMyself("~ ERROR: Command 'REMOVE' does not accept any more parameters than CHANNEL and a parameter. Use: REMOVE <#channel> <topic/modes/invited>\n"));
+		return(sender->messageToMyself("~ ERROR: Command 'REMOVE' does not accept any more parameters than CHANNEL and a parameter. Use: REMOVE <#channel> <topic/modes/invited/banned>\n"));
 	std::map<std::string, Channel>::iterator it = channels.find(channelName);
 	Channel &channel = it->second;
 	if (it == channels.end())//Comprobar si el canal existe
@@ -893,9 +936,9 @@ void Server::commandREMOVE(Client *sender, const std::string &channelName, const
 		return(sender->messageToMyself("~ ERROR: You are not an operator of channel: " + channelName + ".\n"));
 	if (param == "topic")// Si el param es topic. Eliminar el topic
 	{
-		if (channel._topic.empty())// Verificar si el topic ya está vacío
+		if (channel.isTopicEmpty())// Verificar si el topic ya está vacío
 			return(sender->messageToMyself("~ ERROR: Channel " + channelName + " has no topic to remove.\n"));
-		channel._topic.clear();
+		channel.clearTopic();
 		sender->messageToMyself("~ Topic removed from channel: " + channelName + "\n");
 		channel.messageToGroupNoSender("~ '" + sender->getNickname() + "' has removed the topic from channel: " + channelName + "\n", sender);
 	}
@@ -912,12 +955,20 @@ void Server::commandREMOVE(Client *sender, const std::string &channelName, const
 	}
 	else if (param == "invited")// Si el param es invited. Eliminar lista de inivitados
 	{
-		if (channel.invitedClients.empty())// Verificar si la lista de invitados ya está vacía
+		if (channel.isInvitedListEmpty())// Verificar si la lista de invitados ya está vacía
 			return(sender->messageToMyself("~ ERROR: No invited users to remove in channel: " + channelName + "\n"));
-		channel.invitedClients.clear();
+		channel.clearInvitedClients();
 		sender->messageToMyself("~ All invited users have been removed from channel: " + channelName + "\n");
 		channel.messageToGroupNoSender("~ '" + sender->getNickname() + "' has cleared the invited list in channel: " + channelName + "\n", sender);
 	}
+	else if (param == "banned")// Si el param es banned. Eliminar lista de baneados
+	{
+		if (channel.isBannedListEmpty())// Verificar si la lista de baneados ya está vacía
+			return(sender->messageToMyself("~ ERROR: No banned users to remove in channel: " + channelName + "\n"));
+		channel.clearBannedClients();
+		sender->messageToMyself("~ All banned users have been removed from channel: " + channelName + "\n");
+		channel.messageToGroupNoSender("~ '" + sender->getNickname() + "' has cleared the banned list in channel: " + channelName + "\n", sender);
+	}
 	else
-		sender->messageToMyself("~ ERROR: Invalid parameter for REMOVE. Use: topic, modes, or invited.\n");
+		sender->messageToMyself("~ ERROR: Invalid parameter for REMOVE. Use: topic, modes, invited or banned.\n");
 }
