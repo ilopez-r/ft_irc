@@ -5,26 +5,35 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/12/22 14:58:08 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/11 21:32:46 by ilopez-r         ###   ########.fr       */
+/*   Created: 2025/01/12 18:12:08 by ilopez-r          #+#    #+#             */
+/*   Updated: 2025/01/12 18:19:28 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
+
 #include "../include/Server.hpp"
+
+bool isValidPort(const char *str)
+{
+	for (int i = 0; str[i] != '\0'; i++) // Bucle para recorrer todos los caracteres de la cadena
+		if (!std::isdigit(str[i]))  // Verificar si hay un caracter que no es dígito
+			return (false);
+	if (std::atoi(str) < 1024 || std::atoi(str) > 65535)// Verificar si el puerto está fuera del rango permitido
+		return (false);
+	return (true);
+}
 
 int main(int argc, char **argv)
 {
-	if (argc != 3)
-	{
-		std::cerr << "Usage: ./ircserv <port> <password>\n";
-		return (1);
-	}
-	int port = std::atoi(argv[1]);
-	std::string password = argv[2];
 	try
 	{
-		Server server(port, password);
-		server.run();
+		if (argc != 3)
+			throw(std::runtime_error("You must use ./ircserv <port> <password>"));
+		if (!isValidPort(argv[1]))
+			throw(std::runtime_error("Port must be a number between 1024 and 65535"));
+		if (std::strlen(argv[2]) > 10)
+			throw(std::runtime_error("Password cannot be longer than 10 characters"));
+		Server server(std::atoi(argv[1]), argv[2]);
 	}
 	catch (const std::exception &e)
 	{

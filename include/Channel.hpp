@@ -6,14 +6,15 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/22 14:58:23 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/11 21:45:16 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/12 16:29:03 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #ifndef CHANNEL_HPP
 #define CHANNEL_HPP
 
-#include <set>
+#include <set> //Para contenedor set
+#include <string> //Para std::string
 #include "Client.hpp"
 #include "Server.hpp"
 
@@ -22,6 +23,7 @@ class Client;
 class Channel
 {
 	public:
+			//*------------------Constructors and destructors------------------*//
 			Channel(const std::string &name);
 			~Channel();
 
@@ -86,6 +88,7 @@ class Channel
 			void messageToGroupNoSender(const std::string &message, Client *sender);
 			void messageToGroupNoSenderNoReceiver(const std::string &message, Client *sender, Client *receiver);
 	private:
+			//*------------------Channel Utils------------------*//
 			std::string _name; //Nombre del canal
 			std::string _topic; //Topic del canal
 			std::string _key; //Contraseña del canal

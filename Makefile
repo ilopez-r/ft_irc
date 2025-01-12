@@ -10,6 +10,7 @@ SRC = src/Channel.cpp\
 		src/Client.cpp\
 		src/main.cpp\
 		src/Server.cpp\
+		src/Commands.cpp\
 
 OBJ = $(SRC:.cpp=.o)
 

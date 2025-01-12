@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/22 14:59:47 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/11 20:59:03 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/12 23:16:47 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -65,118 +65,16 @@ bool Client::getPasswordSent()
 	return (_passwordSent);
 }
 
-void Client::messageToSomeone(const std::string &message, Client *receiver)
-{
-	if (send(_fd, message.c_str(), message.size(), 0) < 0)
-		std::cerr << "Failed to send message to sender: " << _fd << "\n";
-	if (send(receiver->getFd(), message.c_str(), message.size(), 0) < 0)
-		std::cerr << "Failed to send message to receiver: " << _fd << "\n";
-}
-
 void Client::messageToMyself(const std::string &message)
 {
 	if (send(_fd, message.c_str(), message.size(), 0) < 0)
-		std::cerr << "Failed to send message to client: " << _fd << "\n";
+		std::cerr << "Error: Failed to send message to client: " << _fd << "\n";
 }
 
-std::string Client::trim(const std::string &str)
+void Client::messageToSomeone(const std::string &message, Client *receiver)
 {
-	size_t start = str.find_first_not_of(" \t\r\n");
-	size_t end = str.find_last_not_of(" \t\r\n");
-	if (start == std::string::npos)
-		return ("");
-	else
-		return (str.substr(start, end - start + 1));
-}
-
-void Client::processLine(const std::string &rawInput, Server &server)
-{
-	std::string line = trim(rawInput);
-	if (line.empty())
-		return; // No hacer nada si la línea está vacía.
-	// Separar el mensaje en 3 partes.
-	size_t spacePos = line.find(' ');
-	std::string cmd = line.substr(0, spacePos);
-	std::string paramraw = "";
-	std::string param = "";
-	std::string paramraw2 = "";
-	std::string param2 = "";
-	std::string param3 = "";
-	if (spacePos != std::string::npos)//Si encuentra el espacio
-	{
-		paramraw =  trim(line.substr(spacePos + 1));
-		spacePos = paramraw.find(' ');
-		if (spacePos != std::string::npos)//Si encuentra el espacio
-		{
-			param = paramraw.substr(0, spacePos);
-			if (spacePos != std::string::npos)
-			{
-				paramraw2 = trim(paramraw.substr(spacePos + 1));
-				spacePos = paramraw2.find(' ');
-				param2 = paramraw2.substr(0, spacePos);
-				if (spacePos != std::string::npos)
-					param3 = trim(paramraw2.substr(spacePos + 1));
-			}
-		}
-		else
-			param = paramraw;
-	}
-	for (std::size_t i = 0; i < cmd.size(); i++)
-		cmd[i] = toupper(cmd[i]);
-	std::cout << "[DEBUG] paramraw:" << paramraw << ".\n";
-	std::cout << "[DEBUG] param:" << param << ".\n";
-	std::cout << "[DEBUG] paramraw2:" << paramraw2 << ".\n";
-	std::cout << "[DEBUG] param2:" << param2 << ".\n";
-	std::cout << "[DEBUG] param3:" << param3 << ".\n";
-	handleCommand(cmd, param, paramraw2, param2, param3, server);
-}
-
-void Client::handleCommand(const std::string &cmd, const std::string &param, const std::string &paramraw2, const std::string &param2, const std::string &param3, Server &server)
-{
-	if (cmd == "QUIT")// Sintaxis: QUIT
-		server.commandQUIT(this, param);
-	else if (cmd == "VIVA")
-		messageToMyself("~ ESPAÑA\n");
-	else if (cmd == "HELP")// Sintaxis: HELP [cmd]
-		server.commandHELP(this, param, param2);
-	else if (cmd == "PASS")// Sintaxis: PASS <password>
-		server.commandPASS(this, param, param2);
-	else if (getPasswordSent() == false) //Obligar a que el primer comando que se debe introducir es pass
-		messageToMyself("~ ERROR: You must authenticate with 'PASS' before any other command. Use: PASS <password>\n");
-	else if (cmd == "USER")// Sintaxis: USER <username> 
-		server.commandUSER(this, param, param2);
-	else if (cmd == "NICK")// Sintaxis: NICK <nickname>
-		server.commandNICK(this, param, param2);
-	else if (_nickname.empty())// Obligar a que haya un nickname para poder hacer el resto de comandos
-		messageToMyself("~ ERROR: First you have to use command 'NICK' and specify your nickname. Use: NICK <nickname>\n");
-	else if (cmd == "PROFILE")
-		server.commandPROFILE(this, param);
-	else if (cmd == "CHANNELS")// Sintaxis: CHANNELS [all]
-		server.commandCHANNELS(this, param, param2);
-	else if (cmd == "MSG")// Sintaxis: MSG <user/#channel> <message>
-		server.commandMSG(this, param, paramraw2);
-	else if (cmd == "JOIN")// Sintaxis: JOIN <#channel> [key]. 
-		server.commandJOIN(this, param, param2, param3);
-	else if (cmd == "LEAVE")// Sintaxis: LEAVE <#channel>
-		server.commandLEAVE(this, param, param2);
-	else if (cmd == "KICK")// Sintaxis: KICK <#channel> <user> <reason>
-		server.commandKICK(this, param, param2, param3);
-	else if (cmd == "BAN")// Sintaxis: BAN <#channel> <user> <reason>
-		server.commandBAN(this, param, param2, param3);
-	else if (cmd == "UNBAN")// Sintaxis: UNBAN <#channel> <user>
-		server.commandUNBAN(this, param, param2, param3);
-	else if (cmd == "INVITE")// Sintaxis: INVITE <#channel> <user> 
-		server.commandINVITE(this, param, param2, param3);
-	else if (cmd == "UNINVITE")// Sintaxis: UNINVITE <#channel> <user> 
-		server.commandUNINVITE(this, param, param2, param3);
-	else if (cmd == "TOPIC")// Sintaxis: TOPIC <#channel> [new topic]
-		server.commandTOPIC(this, param, paramraw2);
-	else if (cmd == "KEY")// Sintaxis: KEY <#channel>
-		server.commandKEY(this, param, param2);
-	else if (cmd == "MODE")// Sintaxis: MODE <#channel> [+|-mode] [arg]
-		server.commandMODE(this, param, param2, param3);
-	else if (cmd == "REMOVE")// Sintaxis: REMOVE <#channel> <topic/modes/invited/banned> 
-		server.commandREMOVE(this, param, param2, param3);
-	else
-		messageToMyself("~ Unknown command: " + cmd + "\n");
+	if (send(_fd, message.c_str(), message.size(), 0) < 0)
+		std::cerr << "Error: Failed to send message to sender: " << _fd << "\n";
+	if (send(receiver->getFd(), message.c_str(), message.size(), 0) < 0)
+		std::cerr << "Error: Failed to send message to receiver: " << _fd << "\n";
 }
