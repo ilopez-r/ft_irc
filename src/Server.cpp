@@ -54,17 +54,17 @@ const std::string Server::getPassword() const
 
 std::map<int, Client*>& Server::getClients()
 {
-	return clients;
+	return (clients);
 }
 
 std::map<std::string, Channel>& Server::getChannels()
 {
-	return channels;
+	return (channels);
 }
 
 std::vector<struct pollfd>& Server::getPollFds()
 {
-	return pollFds;
+	return (pollFds);
 }
 
 void Server::initializeServer()
