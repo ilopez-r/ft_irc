@@ -6,21 +6,21 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/11 12:28:54 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/13 00:38:29 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/13 18:13:27 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../include/Server.hpp"
 
-Server::Server(int port, const std::string &password): _port(port), _password(password),  _commands(new Commands())
+Server::Server(int port, const std::string &password): _port(port), _password(password)
 {
 	_design =
-		"  ______ _	   __		  __	  _____   __		   ___\n"
-		" |  ____| |	  \\ \\		/ /\\	/ ____| /_/		  |__ \\ \n"
-		" | |__  | |	   \\ \\  /\\  / /  \\  | (___   / \\			 ) |\n"
-		" |  __| | |		\\ \\/  \\/ / /\\ \\  \\___ \\ / _ \\		   / / \n"
-		" | |____| |____	 \\  /\\  / ____ \\ ____) / ___ \\		 / /_ \n"
-		" |______|______|	 \\/  \\/_/	\\_\\_____/_/   \\_\\	   |____|\n"
+		"  ______ _       __          __      _____   __           ___\n"
+		" |  ____| |      \\ \\        / /\\    / ____| /_/          |__ \\ \n"
+		" | |__  | |       \\ \\  /\\  / /  \\  | (___   / \\             ) |\n"
+		" |  __| | |        \\ \\/  \\/ / /\\ \\  \\___ \\ / _ \\           / / \n"
+		" | |____| |____     \\  /\\  / ____ \\ ____) / ___ \\         / /_ \n"
+		" |______|______|     \\/  \\/_/    \\_\\_____/_/   \\_\\       |____|\n"
 		"\n"
 		"		⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣤⣶⣶⣶⣶⣤⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀\n"
 		"		⠀⠀⠀⠀⢀⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣤⡀⠀⠀⠀⠀\n"
@@ -41,7 +41,6 @@ Server::Server(int port, const std::string &password): _port(port), _password(pa
 
 Server::~Server()
 {
-	delete (_commands);
 	for (std::map<int, Client*>::iterator it = clients.begin(); it != clients.end(); ++it)
 		delete (it->second);
 	close(_serverSocket);
@@ -65,6 +64,11 @@ std::map<std::string, Channel>& Server::getChannels()
 std::vector<struct pollfd>& Server::getPollFds()
 {
 	return (pollFds);
+}
+
+void Server::getHandleBotCommand(Client &sender, const std::string &command)
+{
+	handleBotCommand(sender, command);
 }
 
 void Server::initializeServer()
@@ -145,7 +149,7 @@ void Server::handleClientActions(int clientFd)
 	int bytesReceived = recv(clientFd, buffer, sizeof(buffer) - 1, 0);
 	
 	if (bytesReceived <= 0)//Si se cierra la ventana sin hacer QUIT
-		return(_commands->handleCommand(*clients[clientFd], *this, "QUIT", "", "", "", ""));// Llamar a handleCommand con QUIT para desconectar al cliente del servidor
+		return(handleCommand(*clients[clientFd], *this, "QUIT", "", "", "", ""));// Llamar a handleCommand con QUIT para desconectar al cliente del servidor
 	std::string& clientBuffer = clients[clientFd]->getBuffer(); // Obtener el búfer del cliente
 	clientBuffer += std::string(buffer, bytesReceived);// Acumular datos recibidos en el búfer del cliente
 	size_t pos;
@@ -194,7 +198,7 @@ void Server::processClientLine(Client *client, const std::string &rawInput)
 	std::cout << "[DEBUG] paramraw2:" << paramraw2 << ".\n";
 	std::cout << "[DEBUG] param2:" << param2 << ".\n";
 	std::cout << "[DEBUG] param3:" << param3 << ".\n"; */
-	_commands->handleCommand(*client, *this, cmd, param, paramraw2, param2, param3);
+	handleCommand(*client, *this, cmd, param, paramraw2, param2, param3);
 }
 
 std::string Server::trim(const std::string &str)

@@ -1,3 +1,15 @@
+# **************************************************************************** #
+#                                                                              #
+#                                                         :::      ::::::::    #
+#    Makefile                                           :+:      :+:    :+:    #
+#                                                     +:+ +:+         +:+      #
+#    By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+         #
+#                                                 +#+#+#+#+#+   +#+            #
+#    Created: 2025/01/13 15:02:37 by ilopez-r          #+#    #+#              #
+#    Updated: 2025/01/13 17:45:21 by ilopez-r         ###   ########.fr        #
+#                                                                              #
+# **************************************************************************** #
+
 NAME = ircserv
 
 CC = c++
@@ -10,7 +22,8 @@ SRC = src/Channel.cpp\
 		src/Client.cpp\
 		src/main.cpp\
 		src/Server.cpp\
-		src/Commands.cpp\
+		src/Comannds.cpp\
+		src/bonus/bot.cpp\
 
 OBJ = $(SRC:.cpp=.o)
 

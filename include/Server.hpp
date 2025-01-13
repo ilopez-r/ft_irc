@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/22 15:00:10 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/13 00:48:02 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/13 18:46:08 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,15 +21,15 @@
 #include <vector> //Para el contenedor vector
 #include <poll.h> //Para pollfd
 #include <fcntl.h> //Para fcntl
+#include <sstream> //Para funcion to_string
+#include <cstdlib> //Para atoi
+#include <ctime>    // Para time()
 #include "Client.hpp"
 #include "Channel.hpp"
-#include "Commands.hpp"
 
 class Client;
 
 class Channel;
-
-class Commands;
 
 class Server
 {
@@ -43,6 +43,7 @@ class Server
 			std::map<int, Client*>& getClients();
 			std::map<std::string, Channel>& getChannels();
 			std::vector<struct pollfd>& getPollFds();
+			void getHandleBotCommand(Client &sender, const std::string &command);
 	private:
 			//*------------------Server Utils------------------*//
 			int _port;
@@ -52,7 +53,6 @@ class Server
 			std::string _password;
 			std::map<int, Client*> clients;
 			std::map<std::string, Channel> channels;
-			Commands* _commands;
 
 			//*------------------Server Functions------------------*//
 			void initializeServer();
@@ -61,6 +61,8 @@ class Server
 			void handleClientActions(int clientFd); //Procesar acciones del cliente
 			void processClientLine(Client *client, const std::string &rawInput); // Procesar input del cliente
 			std::string trim(const std::string &str); //Funcion para quitar espacios
+			void handleCommand(Client &client, Server &server, const std::string &cmd, const std::string &param, const std::string &paramraw2, const std::string &param2, const std::string &param3);
+			void handleBotCommand(Client &sender, const std::string &command);
 };
 
 #endif
