@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/11 12:28:54 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/13 18:13:27 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/14 18:59:38 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -139,7 +139,7 @@ void Server::acceptNewClient()
 
 	clients[clientFd] = new Client(clientFd, inet_ntoa(clientAddr.sin_addr));
 	std::cout << "New client connected: (" << clientFd << ")\n";
-	clients[clientFd]->messageToMyself(_design + "Welcome to the IRC Server!\nType HELP to show the instructions\n");
+	clients[clientFd]->messageToMyself(_design + "Welcome to the IRC Server!\nType COMMANDS to show the instructions\n");
 }
 
 void Server::handleClientActions(int clientFd)
@@ -192,12 +192,12 @@ void Server::processClientLine(Client *client, const std::string &rawInput)
 	}
 	for (std::size_t i = 0; i < cmd.size(); i++)
 		cmd[i] = toupper(cmd[i]);
-/* 	std::cout << "\n[DEBUG] input:" << line << ".\n";
+	std::cout << "\n[DEBUG] command:" << cmd << ".\n";
 	std::cout << "[DEBUG] paramraw:" << paramraw << ".\n";
 	std::cout << "[DEBUG] param:" << param << ".\n";
 	std::cout << "[DEBUG] paramraw2:" << paramraw2 << ".\n";
 	std::cout << "[DEBUG] param2:" << param2 << ".\n";
-	std::cout << "[DEBUG] param3:" << param3 << ".\n"; */
+	std::cout << "[DEBUG] param3:" << param3 << ".\n";
 	handleCommand(*client, *this, cmd, param, paramraw2, param2, param3);
 }
 

@@ -1,12 +1,5 @@
 #include "../../include/Server.hpp"
 
-std::string to_string_2(int number)
-{
-	std::ostringstream oss;
-	oss << number;
-	return (oss.str());
-}
-
 void sendHelp(Client& sender)
 {
 	std::string helpMsg = 
