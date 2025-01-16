@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/11 12:28:54 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/14 18:59:38 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/16 20:25:01 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -97,10 +97,10 @@ void Server::initializeServer()
 
 void Server::run()
 {
-	while (true)
+	while (!g_signal)
 	{
 		int pollCount = poll(&pollFds[0], pollFds.size(), -1);
-		if (pollCount < 0)
+		if (pollCount < 0 && !g_signal)
 			throw (std::runtime_error("Poll failed"));
 		for (size_t i = 0; i < pollFds.size(); ++i)
 		{
@@ -150,9 +150,10 @@ void Server::handleClientActions(int clientFd)
 	
 	if (bytesReceived <= 0)//Si se cierra la ventana sin hacer QUIT
 		return(handleCommand(*clients[clientFd], *this, "QUIT", "", "", "", ""));// Llamar a handleCommand con QUIT para desconectar al cliente del servidor
-	std::string& clientBuffer = clients[clientFd]->getBuffer(); // Obtener el búfer del cliente
+	std::string clientBuffer = clients[clientFd]->getBuffer(); // Obtener el búfer del cliente
 	clientBuffer += std::string(buffer, bytesReceived);// Acumular datos recibidos en el búfer del cliente
 	size_t pos;
+
 	while ((pos = clientBuffer.find('\n')) != std::string::npos)// Procesar mensajes completos en el búfer
 	{
 		std::string fullLine = clientBuffer.substr(0, pos); // Extraer un mensaje completo
@@ -192,6 +193,15 @@ void Server::processClientLine(Client *client, const std::string &rawInput)
 	}
 	for (std::size_t i = 0; i < cmd.size(); i++)
 		cmd[i] = toupper(cmd[i]);
+	if (cmd == "KICK" && param2[0] == '#' && param3[0] == ':')
+	{
+		param = param2;
+		spacePos = param3.find(' ');
+		std::string user = trim(param3.substr(1, spacePos));
+		param2 = user;
+		std::string reason = trim(param3.substr(spacePos + 1));
+		param3 = reason;
+	}
 	std::cout << "\n[DEBUG] command:" << cmd << ".\n";
 	std::cout << "[DEBUG] paramraw:" << paramraw << ".\n";
 	std::cout << "[DEBUG] param:" << param << ".\n";

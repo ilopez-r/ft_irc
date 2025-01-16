@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/22 15:00:10 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/13 18:46:08 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/16 19:21:31 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,8 +24,11 @@
 #include <sstream> //Para funcion to_string
 #include <cstdlib> //Para atoi
 #include <ctime>    // Para time()
+#include <csignal> //Para las señales
 #include "Client.hpp"
 #include "Channel.hpp"
+
+extern int g_signal;
 
 class Client;
 

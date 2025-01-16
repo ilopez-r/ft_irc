@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/12 18:12:08 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/12 18:19:28 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/16 19:21:21 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,6 +23,10 @@ bool isValidPort(const char *str)
 	return (true);
 }
 
+int g_signal = 0;
+
+void signalHandler(int signum) { g_signal = signum; }
+
 int main(int argc, char **argv)
 {
 	try
@@ -33,6 +37,8 @@ int main(int argc, char **argv)
 			throw(std::runtime_error("Port must be a number between 1024 and 65535"));
 		if (std::strlen(argv[2]) > 10)
 			throw(std::runtime_error("Password cannot be longer than 10 characters"));
+		signal(SIGINT, signalHandler);
+		signal(SIGQUIT, signalHandler);
 		Server server(std::atoi(argv[1]), argv[2]);
 	}
 	catch (const std::exception &e)

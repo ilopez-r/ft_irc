@@ -74,13 +74,13 @@ void commandQUIT(Client &client, Server &server, const std::string &param)
 		std::cout << "Client (" << clientFd << ") '" << client.getNickname() << "' disconnected\n";
 	else//si el cliente no tiene nickname
 		std::cout << "Client (" << clientFd << ") disconnected\n";
-	server.getClients().erase(clientFd);// Eliminar de la lista de clientes del servidor
 	for (std::vector<pollfd>::iterator it = server.getPollFds().begin(); it != server.getPollFds().end(); ++it)// Recorrer pollFds para eliminar al cliente
 	{
 		if (it->fd == clientFd)
 		{
 			server.getPollFds().erase(it);
 			delete (server.getClients()[clientFd]);//Eliminar el puntero de la memoria
+			server.getClients().erase(clientFd);// Eliminar de la lista de clientes del servidor
 			close(clientFd); // Cerrar el fd del cliente
 			break;
 		}
@@ -193,6 +193,9 @@ void commandNICK(Client &client, Server &server, const std::string &nickname, co
 		return(client.messageToMyself("~ ERROR: No nickname provided. Use: NICK <nickname>\n"));
 	if (!other.empty()) // Verificar ningun otra palabara detras del nickname
 		return(client.messageToMyself("~ ERROR: Command 'NICK' does not accept any more parameters than the NICKNAME. Use: NICK <nickname>\n"));
+	for (int i = 0; nickname[i]; i++)
+		if (nickname[i] == '#' || nickname[i] == '@' || nickname[i] == '!' || nickname[i] == '?')
+			return(client.messageToMyself("~ ERROR: Nickname cannot include especial characters like: #, @, !, ?\n"));
 	if (nickname.length() > 9)// Verificar que no sea mas largo de 9 caracteres	
 		return(client.messageToMyself("~ ERROR: Nickname cannot be longer than 9 characters\n"));
 	if (nickname == "bot" || nickname == "BOT")
