@@ -13,7 +13,7 @@ void commandLEAVE(Client &client, Server &server, const std::string &channelName
 		return(client.messageToMyself("~ ERROR: No channel name provided. Use: LEAVE <#channel>\n"));
 	if (channelName[0] != '#')//Verificar que el canal empieze por #
 		return(client.messageToMyself("~ ERROR: Channel name must start with '#'\n"));
-	if (!other.empty())// Verificar ningun otra palabara detras del canal
+	if (!other.empty() && other != ":Leaving")// Verificar ningun otra palabara detras del canal
 		return(client.messageToMyself("~ ERROR: Command 'LEAVE' does not accept any more parameters than #CHANNEL. Use: LEAVE <#channel>\n"));
 	std::map<std::string, Channel>& channels = server.getChannels();
 	std::map<std::string, Channel>::iterator it = channels.find(channelName);
@@ -24,6 +24,7 @@ void commandLEAVE(Client &client, Server &server, const std::string &channelName
 		return(client.messageToMyself("~ ERROR: You are not in channel: " + channelName + "\n"));
 	if (channel.isOperator(&client))//Elimiar al usuario de la lista de operadores del canal si lo estaba
 		channel.removeOperator(&client);
+	client.messageToMyself(":" + client.getNickname() + " PART " + channelName + " :Leaving\n");
 	channel.removeClientChannnel(&client);
 	std::cout << "Client (" << client.getFd() << ") '" << client.getNickname() << "' left channel: " << channelName << "\n";
 	client.messageToMyself("~ You left channel: " + channelName + "\n");
@@ -31,13 +32,14 @@ void commandLEAVE(Client &client, Server &server, const std::string &channelName
 	if (channel.getOperatorsNumber() == 0 && channel.getClientsNumber() > 0)// Si no hay operadores pero quedan clientes dentro del canal, asignar el operador al cliente más antiguo
 	{
 		Client *firstClient = *channel.getClients().begin();//Guardamos el cliente que hay en el principio del contenedor del canal
-		channel.addOperator(*channel.getClients().begin());//Lo insertamos en el contenedor de operadores
+		channel.addOperator(firstClient);//Lo insertamos en el contenedor de operadores
 		std::cout << "Client (" << firstClient->getFd() << ") '" << firstClient->getNickname() << "' is now an operator in channel: " << channelName << "\n";
 		firstClient->messageToMyself("~ You are now an operator in channel: " + channelName + "\n");
 		channel.messageToGroupNoSender("~ '" + firstClient->getNickname() + "' is now an operator in channel: " + channelName + "\n", firstClient);
 	}
 	if (channel.getClientsNumber() == 0)//Si no hay nadie más en el canal, eliminar canal
 	{
+		//AQUI METEMOS NUMERITOS BORRAR CANAL
 		std::cout << "Channel: " << channelName << " was removed\n";
 		channels.erase(it);
 	}
@@ -122,12 +124,6 @@ void commandCOMMANDS(Client &client, const std::string &cmd, const std::string &
 	std::string KICK = "~ KICK <#channel> <user> <reason>: For operators. Kick a user from a channel\n";
 	if (cmdUpper == "KICK")
 		return(client.messageToMyself(KICK));
-	std::string BAN = "~ BAN <#channel> <user> <reason>: For operators. BAN a user from a channel\n";
-	if (cmdUpper == "BAN")
-		return(client.messageToMyself(BAN));
-	std::string UNBAN = "~ UNBAN <#channel> <user>: For operators. UNBAN a user from a channel\n";
-	if (cmdUpper == "UNBAN")
-		return(client.messageToMyself(UNBAN));
 	std::string INVITE = "~ INVITE <#channel> <user>: For operators. Invite a user to a channel\n";
 	if (cmdUpper == "INVITE")
 		return(client.messageToMyself(INVITE));
@@ -145,7 +141,8 @@ void commandCOMMANDS(Client &client, const std::string &cmd, const std::string &
 						"   * +|- t: Set/remove the restrictions of the topic command to channel operators\n"
 						"   * +|- k: Set/remove the channel key (password)\n"
 						"   * +|- o: Give/remove channel operator privileges\n"
-						"   * +|- l: Set/remove the user limit to a channel\n";
+						"   * +|- l: Set/remove the user limit to a channel\n"
+						"   * +|- b: Ban/unban a user from a channel\n";
 	if (cmdUpper == "MODE")
 		return(client.messageToMyself(MODE));
 	std::string REMOVE = "~ REMOVE <#channel> <topic/modes/invited/banned>: For operators. Remove topic, modes or the clients invited/banned list from a channel\n";
@@ -153,7 +150,7 @@ void commandCOMMANDS(Client &client, const std::string &cmd, const std::string &
 		return(client.messageToMyself(REMOVE));
 	std::string COMMANDS = "~ COMMANDS [cmd]: Show instructions. Type a command <cmd> to see only its instructions\n";
 	if (cmdUpper == "")
-		return(client.messageToMyself(QUIT + PASS + USER + NICK + PROFILE + CHANNELS + MSG + JOIN + LEAVE + KICK + BAN + UNBAN + INVITE + UNINVITE + TOPIC + KEY + MODE + REMOVE + COMMANDS));
+		return(client.messageToMyself(QUIT + PASS + USER + NICK + PROFILE + CHANNELS + MSG + JOIN + LEAVE + KICK + INVITE + UNINVITE + TOPIC + KEY + MODE + REMOVE + COMMANDS));
 	return(client.messageToMyself("~ ERROR: Command '" + cmdUpper + "' is not an existing command. Use: COMMANDS [cmd]\n"));
 }
 
@@ -323,6 +320,10 @@ void commandMSG(Client &sender, Server &server, const std::string &receiver, con
 	{
 		if (!other.empty())
 			return(sender.messageToMyself("~ ERROR: Command 'MSG BOT' does not accept any more parameters than help/joke/play. Use: MSG bot help/joke/play\n"));
+		/* if (cmd == "PRIVMSG")
+		{
+			return ();
+		} */
 		return(server.getHandleBotCommand(sender, message));
 	}
 	if (receiver[0] == '#')// Si el receptor es un canal
@@ -359,7 +360,8 @@ void commandMSG(Client &sender, Server &server, const std::string &receiver, con
 			if (cmd == "PRIVMSG")
 			{
 				std::string newMessage = message.substr(1);
-				return(destinatary->messageToMyself("~ [PRV] " + sender.getNickname() + ": " + newMessage + "\n"));
+				return(destinatary->messageToMyself(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + newMessage + "\r\n"));
+				/* return(sender.messageToMyself(":" + receiver + " PRIVMSG " + sender.getNickname() + " " + message + "\r\n")); */
 			}
 			return(sender.messageToSomeone("~ [PRV] " + sender.getNickname() + ": " + message + "\n", destinatary));
 		}
@@ -388,33 +390,50 @@ void commandJOIN(Client &client, Server &server, const std::string &channelName,
 		client.messageToMyself("~ You have created and joined channel: " + channelName + "\n");//Mensaje al cliente
 		if (!key.empty())//Si se puso algo detrás de #channel
 			client.messageToMyself("~ Channel: " + channelName + " does not need a key to enter\n");//Mensaje al cliente
-		return;
 	}
-	// Si el canal ya existe
-	Channel &channel = channels.find(channelName)->second;// Accede al canal (->second es el objeto de la clase channel)
-	if (channel.hasClient(&client))// Comprobar si el cliente ya está en el canal
-		return(client.messageToMyself("~ ERROR: You are already in channel: " + channelName + "\n"));
-	if (channel.isBanned(&client))// Verificar si el cliente está baneado
-		return(client.messageToMyself("~ ERROR: You are banned in channel: " + channelName + "\n"));
-	if (channel.isInviteOnly() && !channel.isInvited(&client))// Si el canal está en modo invite-only, verificar si el cliente ha sido invitado
-		return(client.messageToMyself("~ ERROR: Channel: " + channelName + " is on INVITE-ONLY mode\n"));
-	if (channel.getUserLimit() > 0 && channel.getUserLimit() <= channel.getClientsNumber())// Comprobar si hay límite de usuarios y si ya se ha alcanzado el máximo
-		return(client.messageToMyself("~ ERROR: Channel: " + channelName + " is full\n"));
-	if (channel.getKey().empty() && !key.empty())//Si no esta en modo key y yo he puesto una contraseña
-		client.messageToMyself("~ Channel: " + channelName + " does not need a key to enter\n");
-	if (!channel.getKey().empty() && !key.empty() && channel.isInvited(&client))//Si esta en modo key y yo he puesto una key, pero estoy invitado
-		client.messageToMyself("~ You do not need a key to enter in channel: " + channelName + " beacause you are invited\n");
-	if (!channel.getKey().empty() && !channel.isInvited(&client))// Comprobar si el canal está en modo key y no estoy invitado
+	else if(channels.find(channelName) != channels.end())// Si el canal ya existe
 	{
-		if (key.empty())//Si no he puesto ninguna key
-			return(client.messageToMyself("~ ERROR: Channel: " + channelName + " is in KEY mode. Use: JOIN <#channel> <key>\n"));
-		if (key != channel.getKey())//Si la key es incorrecta
-			return(client.messageToMyself("~ ERROR: Incorrect key\n"));
+		Channel &channel = channels.find(channelName)->second;// Accede al canal (->second es el objeto de la clase channel)
+		if (channel.hasClient(&client))// Comprobar si el cliente ya está en el canal
+			return(client.messageToMyself("~ ERROR: You are already in channel: " + channelName + "\n"));
+		if (channel.isBanned(&client))// Verificar si el cliente está baneado
+			return(client.messageToMyself("~ ERROR: You are banned in channel: " + channelName + "\n"));
+		if (channel.isInviteOnly() && !channel.isInvited(&client))// Si el canal está en modo invite-only, verificar si el cliente ha sido invitado
+			return(client.messageToMyself("~ ERROR: Channel: " + channelName + " is on INVITE-ONLY mode\n"));
+		if (channel.getUserLimit() > 0 && channel.getUserLimit() <= channel.getClientsNumber())// Comprobar si hay límite de usuarios y si ya se ha alcanzado el máximo
+			return(client.messageToMyself("~ ERROR: Channel: " + channelName + " is full\n"));
+		if (channel.getKey().empty() && !key.empty())//Si no esta en modo key y yo he puesto una contraseña
+			client.messageToMyself("~ Channel: " + channelName + " does not need a key to enter\n");
+		if (!channel.getKey().empty() && !key.empty() && channel.isInvited(&client))//Si esta en modo key y yo he puesto una key, pero estoy invitado
+			client.messageToMyself("~ You do not need a key to enter in channel: " + channelName + " beacause you are invited\n");
+		if (!channel.getKey().empty() && !channel.isInvited(&client))// Comprobar si el canal está en modo key y no estoy invitado
+		{
+			if (key.empty())//Si no he puesto ninguna key
+				return(client.messageToMyself("~ ERROR: Channel: " + channelName + " is in KEY mode. Use: JOIN <#channel> <key>\n"));
+			if (key != channel.getKey())//Si la key es incorrecta
+				return(client.messageToMyself("~ ERROR: Incorrect key\n"));
+		}
+		channel.addClient(&client);//Añade al cliente.
+		std::cout << "Client (" << client.getFd() << ") '" << client.getNickname() << "' joined channel: " << channelName << "\n";//Mensaje en servidor
+		client.messageToMyself("~ You joined channel: " + channelName + "\n");//Mensaje al cliente
+		channel.messageToGroupNoSender("~ '" + client.getNickname() + "' joined channel: " + channelName + "\n", &client);//Mensaje al grupo
 	}
-	channel.addClient(&client);//Añade al cliente.
-	std::cout << "Client (" << client.getFd() << ") '" << client.getNickname() << "' joined channel: " << channelName << "\n";//Mensaje en servidor
-	client.messageToMyself("~ You joined channel: " + channelName + "\n");//Mensaje al cliente
-	channel.messageToGroupNoSender("~ '" + client.getNickname() + "' joined channel: " + channelName + "\n", &client);//Mensaje al grupo
+	Channel &channel = channels.find(channelName)->second;// Accede al canal (->second es el objeto de la clase channel)
+	client.messageToMyself(":" + client.getNickname() + " JOIN :" + channelName + "\r\n");
+	if (!channel.isTopicEmpty()) // 📢 2. Enviar el TEMA actual del canal (RPL_TOPIC 332)
+        client.messageToMyself(":ircserver 332 " + client.getNickname() + " " + channelName + " :" + channel.getTopic() + "\r\n");
+	// 📢 3. Enviar la lista de usuarios (RPL_NAMREPLY 353
+	std::string userList = "=" + channelName + " :";
+	const std::set<Client*>& clientsInChannel = channel.getClients();
+	for (std::set<Client*>::const_iterator it = clientsInChannel.begin(); it != clientsInChannel.end(); ++it) {
+		if (channel.isOperator(*it))
+			userList += "@";  // El operador se marca con "@"
+		userList += (*it)->getNickname() + " ";
+	}
+	client.messageToMyself(":ircserver 353 " + client.getNickname() + " " + userList + "\r\n");
+
+	// 📢 4. Fin de la lista de usuarios (RPL_ENDOFNAMES 366)
+	client.messageToMyself(":ircserver 366 " + client.getNickname() + " " + channelName + " :End of /NAMES list.\r\n");
 }
 
 void commandKICK(Client &sender, Server &server, const std::string &channelName, const std::string &user, const std::string &reason)
@@ -444,88 +463,18 @@ void commandKICK(Client &sender, Server &server, const std::string &channelName,
 					channel.removeInvitedClient(client);
 				if (channel.isOperator(client))//Elimiar al usuario de la lista de operadores del canal si lo estaba
 					channel.removeOperator(client);
+				std::string reasonParsed = reason;
+				if (reason[0] == ':')
+					reasonParsed = reason.substr(1);
+				client->messageToMyself(":" + sender.getNickname() + " KICK " + channelName + " " + user + " :" + reasonParsed + "\r\n");
 				channel.removeClientChannnel(client);//Eliminar al usuario del canal
 				std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' has kicked Client (" << client->getFd() << ") '" << client->getNickname() << "' from channel " << channelName << "\n";
 				channel.messageToGroupNoSender("~ '" + user + "' has been kicked by '" + sender.getNickname() + "' from channel " + channelName + "\n", &sender);
 				sender.messageToMyself("~ You have kicked '" + user + "' from " + channelName + "\n");
-				return(client->messageToMyself("~ You have been kicked from " + channelName + " by '" + sender.getNickname() + "'. Reason: " + reason + "\n"));
+				return(client->messageToMyself("~ You have been kicked from " + channelName + " by '" + sender.getNickname() + "'. Reason: " + reasonParsed + "\n"));
 			}
 			else//Si no se cumple, ese usuario ya estaba fuera del canal
 				return(sender.messageToMyself("~ ERROR: User '" + user + "' is not in channel: " + channelName + "\n"));
-		}
-	}
-	sender.messageToMyself("~ ERROR: User '" + user + "' does not exist\n"); //El usuario no esta en el servidor
-}
-
-void commandBAN(Client &sender, Server &server, const std::string &channelName, const std::string &user, const std::string &reason)
-{
-	if (channelName.empty() || user.empty() || reason.empty())//Verificar que ninguno de los parametros este vacio
-		return(sender.messageToMyself("~ ERROR: Invalid BAN command syntax. Use: BAN <#channel> <user> <reason>\n"));
-	std::map<std::string, Channel>& channels = server.getChannels();
-	std::map<std::string, Channel>::iterator it = channels.find(channelName);
-	Channel &channel = it->second;
-	if (it == channels.end())//Comprobar si el canal existe
-		return(sender.messageToMyself("~ ERROR: Channel: " + channelName + " does not exist\n"));
-	if (!channel.hasClient(&sender))//Comprobar si estoy está dentro del canal
-		return(sender.messageToMyself("~ ERROR: You are not in channel: " + channelName + "\n"));
-	if (!channel.isOperator(&sender))//Comprobar si soy operador
-		return(sender.messageToMyself("~ ERROR: You are not an operator of channel: " + channelName + ".\n"));
-	if (user == sender.getNickname())//Verificar que no me este baneando a mi mismo
-		return(sender.messageToMyself("~ ERROR: You cannot ban yourself ('" + sender.getNickname() + "') from a channel\n"));
-	std::map<int, Client*>& clients = server.getClients();
-	for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt)//Bucle para recorrer todos los clientes que hay conectados al servidor
-	{
-		Client *client = clientIt->second;
-		if (client->getNickname() == user)//Si el cliente coincide con el usuario al que se va a banear
-		{
-			if (channel.isBanned(client))// Verificar si ya está baneado
-				return(sender.messageToMyself("~ ERROR: User '" + user + "' is already banned in " + channelName + ".\n"));
-			if (channel.isInvited(client))//Eliminar al usuario de la lista de invitados del canal si lo estaba
-				channel.removeInvitedClient(client);
-			if (channel.isOperator(client))//Elimiar al usuario de la lista de operadores del canal si lo estaba
-				channel.removeOperator(client);
-			if (channel.hasClient(client))//Eliminar al usuario del canal si está dentro
-				channel.removeClientChannnel(client);
-			channel.banClient(client);// Banear al usuario
-			std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' has banned Client (" << client->getFd() << ") '" << client->getNickname() << "' from channel " << channelName << "\n";
-			channel.messageToGroupNoSender("~ '" + user + "' has been banned by '" + sender.getNickname() + "' from channel " + channelName + "\n", &sender);
-			sender.messageToMyself("~ You have banned '" + user + "' from " + channelName + "\n");
-			return(client->messageToMyself("~ You have been banned from " + channelName + " by '" + sender.getNickname() + "'. Reason: " + reason + "\n"));
-		}
-	}
-	sender.messageToMyself("~ ERROR: User '" + user + "' does not exist\n"); //El usuario no esta en el servidor
-}
-
-void commandUNBAN(Client &sender, Server &server, const std::string &channelName, const std::string &user, const std::string &other)
-{
-	if (channelName.empty() || user.empty())//Verificar que ninguno de los parametros este vacio
-		return(sender.messageToMyself("~ ERROR: Invalid UNBAN command syntax. Use: UNBAN <#channel> <user>\n"));
-	if (!other.empty())//Verificar ningun otra palabara detras de <user>
-		return(sender.messageToMyself("~ ERROR: Command 'UNBAN' does not accept any more parameters than CHANNEL and USER. Use: UNBAN <#channel> <user>\n"));
-	std::map<std::string, Channel>& channels = server.getChannels();
-	std::map<std::string, Channel>::iterator it = channels.find(channelName);
-	Channel &channel = it->second;
-	if (it == channels.end())//Comprobar si el canal existe
-		return(sender.messageToMyself("~ ERROR: Channel: " + channelName + " does not exist\n"));
-	if (!channel.hasClient(&sender))//Comprobar si estoy está dentro del canal
-		return(sender.messageToMyself("~ ERROR: You are not in channel: " + channelName + "\n"));
-	if (!channel.isOperator(&sender))//Comprobar si soy operador
-		return(sender.messageToMyself("~ ERROR: You are not an operator of channel: " + channelName + ".\n"));
-	if (user == sender.getNickname())//Verificar que no me este desbaneando a mi mismo
-		return(sender.messageToMyself("~ ERROR: You cannot unban yourself ('" + sender.getNickname() + "') from a channel\n"));
-	std::map<int, Client*>& clients = server.getClients();
-	for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt)//Bucle para recorrer todos los clientes que hay conectados al servidor
-	{
-		Client *client = clientIt->second;
-		if (client->getNickname() == user)//Si el cliente coincide con el usuario al que se va a banear
-		{
-			if (!channel.isBanned(client))// Verificar que no está baneado
-				return(sender.messageToMyself("~ ERROR: User '" + user + "' is not banned in " + channelName + ".\n"));
-			channel.unbanClient(client);// Desbanear al usuario
-			std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' has unbanned Client (" << client->getFd() << ") '" << client->getNickname() << "' from channel " << channelName << "\n";
-			channel.messageToGroupNoSender("~ '" + user + "' has been unbanned by '" + sender.getNickname() + "' from channel " + channelName + "\n", &sender);
-			sender.messageToMyself("~ You have unbanned '" + user + "' from " + channelName + "\n");
-			return(client->messageToMyself("~ You have been unbanned from " + channelName + " by '" + sender.getNickname() + "\n"));
 		}
 	}
 	sender.messageToMyself("~ ERROR: User '" + user + "' does not exist\n"); //El usuario no esta en el servidor
@@ -625,7 +574,10 @@ void commandTOPIC(Client &sender, Server &server, const std::string &channelName
 		return(sender.messageToMyself("~ ERROR: You are not in channel: " + channelName + "\n"));
 	if ((channel.isTopicRestricted() && !channel.isOperator(&sender)))//Comprobar si el canal esta +t y yo no soy operador
 		return(sender.messageToMyself("~ ERROR: You are not allowed to change the topic in channel: " + channelName + ". Channel is in MODE +t and you are not an operator\n"));
-	if (topic == "REMOVE" || topic == "remove")// Eliminar el tema del canal
+	std::string topicParsed = topic;
+	if (topic[0] == ':')
+		topicParsed = topic.substr(1);
+	if (topicParsed == "REMOVE" || topicParsed == "remove")// Eliminar el tema del canal
 	{
 		if (channel.getTopic() == "")//Comprobar si estoy intentando eliminar el topic en un canal que no tiene topic
 			return(sender.messageToMyself("~ ERROR: Channel: " + channelName + " has no TOPIC\n"));
@@ -634,12 +586,12 @@ void commandTOPIC(Client &sender, Server &server, const std::string &channelName
 		sender.messageToMyself("~ You removed TOPIC in channel: " + channelName + "\n");
 		return(channel.messageToGroupNoSender("~ '" + sender.getNickname() + "' removed TOPIC in channel: " + channelName + "\n", &sender));
 	}
-	if (channel.getTopic() == topic)//Comprobar si estoy intentando poner un topic en un canal que ya tiene ese mismo topic
-			return(sender.messageToMyself("~ ERROR: TOPIC in channel: " + channelName + " is already '" + topic + "'\n"));
-	channel.setTopic(topic);
-	std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' changed TOPIC to '" << topic << "' in channel: " << channelName << "\n";
-	sender.messageToMyself("~ You changed TOPIC to '" + topic + "' in channel: " + channelName + "\n");
-	channel.messageToGroupNoSender("~ '" + sender.getNickname() + "' changed TOPIC to '" + topic + "' in channel: " + channelName + "\n", &sender);
+	if (channel.getTopic() == topicParsed)//Comprobar si estoy intentando poner un topic en un canal que ya tiene ese mismo topic
+			return(sender.messageToMyself("~ ERROR: TOPIC in channel: " + channelName + " is already '" + topicParsed + "'\n"));
+	channel.setTopic(topicParsed);
+	std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' changed TOPIC to '" << topicParsed << "' in channel: " << channelName << "\n";
+	sender.messageToMyself("~ You changed TOPIC to '" + topicParsed + "' in channel: " + channelName + "\n");
+	channel.messageToGroupNoSender("~ '" + sender.getNickname() + "' changed TOPIC to '" + topicParsed + "' in channel: " + channelName + "\n", &sender);
 }
 
 void commandKEY(Client &sender, Server &server, const std::string &channelName, const std::string &other)
@@ -727,6 +679,8 @@ void commandMODE(Client &sender, Server &server, const std::string &channelName,
 				{
 					if (!channel.isOperator(client))
 						return(sender.messageToMyself("~ ERROR: '" + param + "' is not an operator in channel: " + channelName + "\n"));
+					if (channel.getOperatorsNumber() == 1)// Si soy el unico operador, que no me deje quitarmelo
+						return(sender.messageToMyself("~ ERROR: You are the only operator in channel: " + channelName + "\n"));
 					channel.removeOperator(client);
 					std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' removed operator privileges to '" << param << "' in channel: " << channelName << "\n";
 					sender.messageToMyself("~ You removed OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n");
@@ -829,8 +783,61 @@ void commandMODE(Client &sender, Server &server, const std::string &channelName,
 		channel.messageToGroupNoSender("~ '" + sender.getNickname() + "' disabled USER-LIMIT mode in channel: " + channelName + "\n", &sender);
 		std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' disabled user-limit mode in channel: " << channelName << "\n";
 	}
+	else if (mode == "+b")
+	{
+		if (param == "")
+			return;
+		if (param == sender.getNickname())//Verificar que no me este baneando a mi mismo
+			return(sender.messageToMyself("~ ERROR: You cannot ban yourself ('" + sender.getNickname() + "') from a channel\n"));
+		std::map<int, Client*>& clients = server.getClients();
+		for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt)
+		{
+			Client *client = clientIt->second;
+			if (client->getNickname() == param)
+			{
+				if (channel.isBanned(client))// Verificar si ya está baneado
+					return(sender.messageToMyself("~ ERROR: User '" + param + "' is already banned in " + channelName + ".\n"));
+				if (channel.isInvited(client))//Eliminar al usuario de la lista de invitados del canal si lo estaba
+					channel.removeInvitedClient(client);
+				if (channel.isOperator(client))//Elimiar al usuario de la lista de operadores del canal si lo estaba
+					channel.removeOperator(client);
+				if (channel.hasClient(client))//Eliminar al usuario del canal si está dentro
+					channel.removeClientChannnel(client);
+				client->messageToMyself(":" + sender.getNickname() + " KICK " + channelName + " " + param + "\r\n");
+				channel.banClient(client);// Banear al usuario
+				std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' has banned Client (" << client->getFd() << ") '" << client->getNickname() << "' from channel " << channelName << "\n";
+				channel.messageToGroupNoSender("~ '" + param + "' has been banned by '" + sender.getNickname() + "' from channel " + channelName + "\n", &sender);
+				sender.messageToMyself("~ You have banned '" + param + "' from " + channelName + "\n");
+				return(client->messageToMyself("~ You have been banned from " + channelName + " by '" + sender.getNickname() + "'\n"));
+			}
+		}
+		sender.messageToMyself("~ ERROR: User '" + param + "' does not exist\n");
+	}
+	else if (mode == "-b")
+	{
+		if (param == "")
+			return(sender.messageToMyself("~ ERROR: You need to specify a user for MODE -b\n"));
+		if (param == sender.getNickname())//Verificar que no me este desbaneando a mi mismo
+			return(sender.messageToMyself("~ ERROR: You cannot unban yourself ('" + sender.getNickname() + "') from a channel\n"));
+		std::map<int, Client*>& clients = server.getClients();
+		for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt)
+		{
+			Client *client = clientIt->second;
+			if (client->getNickname() == param)
+			{
+				if (!channel.isBanned(client))// Verificar que no está baneado ya
+					return(sender.messageToMyself("~ ERROR: User '" + param + "' is not banned in " + channelName + ".\n"));
+				channel.unbanClient(client);// Desbanear al usuario
+				std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' has unbanned Client (" << client->getFd() << ") '" << client->getNickname() << "' from channel " << channelName << "\n";
+				channel.messageToGroupNoSender("~ '" + param + "' has been unbanned by '" + sender.getNickname() + "' from channel " + channelName + "\n", &sender);
+				sender.messageToMyself("~ You have unbanned '" + param + "' from " + channelName + "\n");
+				return(client->messageToMyself("~ You have been unbanned from " + channelName + " by '" + sender.getNickname() + "'\n"));
+			}
+		}
+		sender.messageToMyself("~ ERROR: User '" + param + "' does not exist\n"); //El usuario no esta en el servidor
+	}
 	else
-		sender.messageToMyself("~ ERROR: Invalid mode command. Modes are: +|- i, t, k, o, l\n");
+		sender.messageToMyself("~ ERROR: Invalid mode command. Modes are: +|- i, t, k, o, l, b\n");
 }
 
 void commandREMOVE(Client &sender, Server &server, const std::string &channelName, const std::string &param, const std::string &other)
@@ -890,7 +897,7 @@ void commandREMOVE(Client &sender, Server &server, const std::string &channelNam
 void Server::handleCommand(Client &client, Server &server, const std::string &cmd, const std::string &param, const std::string &paramraw2, const std::string &param2, const std::string &param3)
 {
 	if (cmd == "CAP")
-		return;
+		return(client.messageToMyself("CAP * LS\r\n"));
 	if (cmd == "QUIT")// Sintaxis: QUIT
 		commandQUIT(client, server, param);
 	else if (cmd == "VIVA")
@@ -915,14 +922,12 @@ void Server::handleCommand(Client &client, Server &server, const std::string &cm
 		commandMSG(client, server, param, paramraw2, param3, cmd);
 	else if (cmd == "JOIN")// Sintaxis: JOIN <#channel> [key]. 
 		commandJOIN(client, server, param, param2, param3);
-	else if (cmd == "LEAVE")// Sintaxis: LEAVE <#channel>
+	else if (cmd == "WHO")
+		return;
+	else if (cmd == "LEAVE"  || cmd == "PART")// Sintaxis: LEAVE <#channel>
 		commandLEAVE(client, server, param, param2);
 	else if (cmd == "KICK")// Sintaxis: KICK <#channel> <user> <reason>
 		commandKICK(client, server, param, param2, param3);
-	else if (cmd == "BAN")// Sintaxis: BAN <#channel> <user> <reason>
-		commandBAN(client, server, param, param2, param3);
-	else if (cmd == "UNBAN")// Sintaxis: UNBAN <#channel> <user>
-		commandUNBAN(client, server, param, param2, param3);
 	else if (cmd == "INVITE")// Sintaxis: INVITE <#channel> <user> 
 		commandINVITE(client, server, param, param2, param3);
 	else if (cmd == "UNINVITE")// Sintaxis: UNINVITE <#channel> <user> 

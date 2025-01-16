@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/22 14:59:47 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/14 18:08:37 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/15 20:46:26 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -29,6 +29,11 @@ Client::~Client()
 int Client::getFd() const
 {
 	return (_fd);
+}
+
+std::string &Client::getIp()
+{
+	return (_ip);
 }
 
 std::string &Client::getBuffer()
