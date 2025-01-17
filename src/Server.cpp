@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/11 12:28:54 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/16 20:25:01 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/17 18:56:16 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -76,6 +76,9 @@ void Server::initializeServer()
 	_serverSocket = socket(AF_INET, SOCK_STREAM, 0);
 	if (_serverSocket < 0)
 		throw (std::runtime_error("Failed to create socket"));
+	int optval = 1;
+	if (setsockopt(_serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1)
+		throw (std::runtime_error("Unable to set options to server socket"));
 	if (fcntl(_serverSocket, F_SETFL, O_NONBLOCK) == -1)// Configurar el socket como no bloqueante
 		throw (std::runtime_error("Failed to set non-blocking mode on server socket"));
 	sockaddr_in serverAddr;
@@ -144,22 +147,42 @@ void Server::acceptNewClient()
 
 void Server::handleClientActions(int clientFd)
 {
-	char buffer[512];
+	char buffer[1024];
 	std::memset(buffer, 0, sizeof(buffer));
 	int bytesReceived = recv(clientFd, buffer, sizeof(buffer) - 1, 0);
 	
+	if (bytesReceived == -1)
+	{
+		std::cerr << "Error: Recv has failed\n";
+		return;
+	}
 	if (bytesReceived <= 0)//Si se cierra la ventana sin hacer QUIT
 		return(handleCommand(*clients[clientFd], *this, "QUIT", "", "", "", ""));// Llamar a handleCommand con QUIT para desconectar al cliente del servidor
-	std::string clientBuffer = clients[clientFd]->getBuffer(); // Obtener el búfer del cliente
+	/* std::string clientBuffer = clients[clientFd]->getBuffer(); // Obtener el búfer del cliente
 	clientBuffer += std::string(buffer, bytesReceived);// Acumular datos recibidos en el búfer del cliente
 	size_t pos;
-
+	std::cout << "[DEBUG] buffer1:" << clientBuffer << ".\n";
 	while ((pos = clientBuffer.find('\n')) != std::string::npos)// Procesar mensajes completos en el búfer
 	{
 		std::string fullLine = clientBuffer.substr(0, pos); // Extraer un mensaje completo
 		clientBuffer.erase(0, pos + 1); // Eliminar el mensaje procesado del búfer
+		std::cout << "[DEBUG] buffer2:" << clientBuffer << ".\n";
 		processClientLine(clients[clientFd], fullLine);// Procesar la línea escrita por el cliente
+	} */
+	std::string clientBuffer(buffer);
+	size_t pos;
+	std::cout << "[DEBUG] buffer1:" << clientBuffer << ".\n";
+	while ((pos = clientBuffer.find_first_of("\n")) != std::string::npos)
+	{
+		clients[clientFd]->setBuffer(clients[clientFd]->getBuffer() + clientBuffer.substr(0, pos + 1));
+		processClientLine(clients[clientFd], clients[clientFd]->getBuffer());// Procesar la línea escrita por el cliente
+		if (clients.find(clientFd) != clients.end())
+			clients[clientFd]->setBuffer("");
+		clientBuffer.erase(0, pos + 1);
+		std::cout << "[DEBUG] buffer2:" << clientBuffer << ".\n";
 	}
+	if (clients[clientFd])
+		clients[clientFd]->setBuffer(clients[clientFd]->getBuffer() + clientBuffer);
 }
 
 void Server::processClientLine(Client *client, const std::string &rawInput)

@@ -7,48 +7,47 @@ std::string to_string (int number)
 	return (oss.str());
 }
 
-void commandLEAVE(Client &client, Server &server, const std::string &channelName, const std::string &other)
+void commandPART(Client &client, Server &server, const std::string &channelName, const std::string &other)
 {
 	if (channelName.empty())// Verificar que se ha especificado un canal
-		return(client.messageToMyself("~ ERROR: No channel name provided. Use: LEAVE <#channel>\n"));
+		return(client.messageToMyself(":ircserver 461 " + client.getNickname() + " " + channelName + " ERROR: No channel name provided. Use: PART <#channel>\r\n"));
 	if (channelName[0] != '#')//Verificar que el canal empieze por #
-		return(client.messageToMyself("~ ERROR: Channel name must start with '#'\n"));
-	if (!other.empty() && other != ":Leaving")// Verificar ningun otra palabara detras del canal
-		return(client.messageToMyself("~ ERROR: Command 'LEAVE' does not accept any more parameters than #CHANNEL. Use: LEAVE <#channel>\n"));
+		return(client.messageToMyself(":ircserver 403 " + client.getNickname() + " " + channelName + " ERROR: Channel name must start with '#'\r\n"));
+	std::string parsedOther = other;
+	if (other[0] == ':')
+		parsedOther = other.substr(1);
+	if (!parsedOther.empty() && other != ":Leaving")// Verificar ningun otra palabara detras del canal
+		return(client.messageToMyself(":ircserver 461 " + client.getNickname() + " ERROR: Command 'PART' does not accept any more parameters than #CHANNEL. Use: PART <#channel>\r\n"));
 	std::map<std::string, Channel>& channels = server.getChannels();
 	std::map<std::string, Channel>::iterator it = channels.find(channelName);
 	Channel &channel = it->second;
 	if (it == channels.end())//Comprobar si el canal existe
-		return(client.messageToMyself("~ ERROR: ERROR: Channel " + channelName + " does not exist\n"));
+		return(client.messageToMyself(":ircserver 403 " + client.getNickname() + " ERROR: Channel " + channelName + " does not exist\r\n"));
 	if (!channel.hasClient(&client))//Comprobar si el cliente está dentro del canal
-		return(client.messageToMyself("~ ERROR: You are not in channel: " + channelName + "\n"));
+		return(client.messageToMyself(":ircserver 442 " + client.getNickname() + " ERROR: You are not in channel: " + channelName + "\r\n"));
 	if (channel.isOperator(&client))//Elimiar al usuario de la lista de operadores del canal si lo estaba
 		channel.removeOperator(&client);
-	client.messageToMyself(":" + client.getNickname() + " PART " + channelName + " :Leaving\n");
+	client.messageToMyself(":" + client.getNickname() + " PART " + channelName + " ~ You left channel ~\r\n");
 	channel.removeClientChannnel(&client);
-	std::cout << "Client (" << client.getFd() << ") '" << client.getNickname() << "' left channel: " << channelName << "\n";
-	client.messageToMyself("~ You left channel: " + channelName + "\n");
-	channel.messageToGroupNoSender("~ '" + client.getNickname() + "' left channel: " + channelName + "\n", &client);
+	std::cout << "Client (" << client.getFd() << ") '" << client.getNickname() << "' left channel: " << channelName << "\r\n";
+	channel.messageToGroupNoSender(":" + client.getNickname() + " PRIVMSG " + channelName + " ~ Left channel ~\r\n", &client);
 	if (channel.getOperatorsNumber() == 0 && channel.getClientsNumber() > 0)// Si no hay operadores pero quedan clientes dentro del canal, asignar el operador al cliente más antiguo
 	{
 		Client *firstClient = *channel.getClients().begin();//Guardamos el cliente que hay en el principio del contenedor del canal
 		channel.addOperator(firstClient);//Lo insertamos en el contenedor de operadores
-		std::cout << "Client (" << firstClient->getFd() << ") '" << firstClient->getNickname() << "' is now an operator in channel: " << channelName << "\n";
-		firstClient->messageToMyself("~ You are now an operator in channel: " + channelName + "\n");
-		channel.messageToGroupNoSender("~ '" + firstClient->getNickname() + "' is now an operator in channel: " + channelName + "\n", firstClient);
+		std::cout << "Client (" << firstClient->getFd() << ") '" << firstClient->getNickname() << "' is now an operator in channel: " << channelName << "\r\n";
+		firstClient->messageToMyself(":" + firstClient->getNickname() + " PRIVMSG " + channelName + " ~ You are now an operator in channel ~\r\n");
+		channel.messageToGroupNoSender(":" + firstClient->getNickname() + " PRIVMSG " + channelName + " ~ Is now an operator in channel ~\r\n", &client);
 	}
 	if (channel.getClientsNumber() == 0)//Si no hay nadie más en el canal, eliminar canal
 	{
-		//AQUI METEMOS NUMERITOS BORRAR CANAL
 		std::cout << "Channel: " << channelName << " was removed\n";
 		channels.erase(it);
 	}
 }
 
-void commandQUIT(Client &client, Server &server, const std::string &param)
+void commandQUIT(Client &client, Server &server)
 {
-	if (!param.empty() && param != ":Leaving")// Verificar ningun otra palabara detras de QUIT
-			return(client.messageToMyself("~ ERROR: Command 'QUIT' does not accept any parameters\n"));
 	std::map<std::string, Channel>& channels = server.getChannels();
 	for (std::map<std::string, Channel>::iterator it = channels.begin(); it != channels.end();)// Eliminar al cliente de los canales en los que está.
 	{
@@ -60,8 +59,8 @@ void commandQUIT(Client &client, Server &server, const std::string &param)
 			channel.unbanClient(&client);
 		if (channel.hasClient(&client))
 		{
-			commandLEAVE(client, server, channelName, "");
-			if (channels.find(channelName) == channels.end()) // Si `commandLEAVE` eliminó el canal, actualizar el iterador.
+			commandPART(client, server, channelName, "");
+			if (channels.find(channelName) == channels.end()) // Si `commandPART` eliminó el canal, actualizar el iterador.
 				it = channels.begin(); // Reinicia iteración en caso de eliminación.
 			else
 				++it; // Avanza al siguiente canal si no fue eliminado.
@@ -93,7 +92,9 @@ void commandCOMMANDS(Client &client, const std::string &cmd, const std::string &
 	for (std::size_t i = 0; i < cmd.size(); i++)
 		cmdUpper[i] = toupper(cmd[i]);
 	if (!other.empty())
-		return(client.messageToMyself("~ ERROR: Command 'COMMANDS' does not accept any more parameters than an existing command. Use: COMMANDS [cmd]\n"));
+		return(client.messageToMyself(":ircserver 461 " + client.getNickname() + " ERROR: Command 'COMMANDS' does not accept any more parameters than an existing command. Use: COMMANDS [cmd]\r\n"));
+		/* return(client.messageToMyself(":" + client.getNickname() + " PRIVMSG " + client.getNickname() + " ERROR: Command 'COMMANDS' does not accept any more parameters than an existing command. Use: COMMANDS [cmd]\r\n"));
+		return(client.messageToMyself("~ ERROR: Command 'COMMANDS' does not accept any more parameters than an existing command. Use: COMMANDS [cmd]\n")); */
 	std::string QUIT = "~ QUIT: Disconnect from the server\n";
 	if (cmdUpper == "QUIT")
 		return(client.messageToMyself(QUIT));
@@ -118,9 +119,9 @@ void commandCOMMANDS(Client &client, const std::string &cmd, const std::string &
 	std::string JOIN = "~ JOIN <#channel> [key]: Join a channel\n";
 	if (cmdUpper == "JOIN")
 		return(client.messageToMyself(JOIN));
-	std::string LEAVE = "~ LEAVE <#channel>: Disconnect from a channel\n";
-	if (cmdUpper == "LEAVE")
-		return(client.messageToMyself(LEAVE));
+	std::string PART = "~ PART <#channel>: Disconnect from a channel\n";
+	if (cmdUpper == "PART")
+		return(client.messageToMyself(PART));
 	std::string KICK = "~ KICK <#channel> <user> <reason>: For operators. Kick a user from a channel\n";
 	if (cmdUpper == "KICK")
 		return(client.messageToMyself(KICK));
@@ -150,7 +151,7 @@ void commandCOMMANDS(Client &client, const std::string &cmd, const std::string &
 		return(client.messageToMyself(REMOVE));
 	std::string COMMANDS = "~ COMMANDS [cmd]: Show instructions. Type a command <cmd> to see only its instructions\n";
 	if (cmdUpper == "")
-		return(client.messageToMyself(QUIT + PASS + USER + NICK + PROFILE + CHANNELS + MSG + JOIN + LEAVE + KICK + INVITE + UNINVITE + TOPIC + KEY + MODE + REMOVE + COMMANDS));
+		return(client.messageToMyself(QUIT + PASS + USER + NICK + PROFILE + CHANNELS + MSG + JOIN + PART + KICK + INVITE + UNINVITE + TOPIC + KEY + MODE + REMOVE + COMMANDS));
 	return(client.messageToMyself("~ ERROR: Command '" + cmdUpper + "' is not an existing command. Use: COMMANDS [cmd]\n"));
 }
 
@@ -348,10 +349,7 @@ void commandMSG(Client &sender, Server &server, const std::string &receiver, con
 		if (cmd == "PRIVMSG")
 		{
 			std::string newMessage = message.substr(1);
-			if (channel.isOperator(&sender))//Comprobar si soy operador
-				return(channel.messageToGroupNoSender("~ [" + channel.getName() + "][OP] " + sender.getNickname() + ": " + newMessage + "\n", &sender));
-			else// Enviar mensaje al canal
-				return(channel.messageToGroupNoSender("~ [" + channel.getName() + "] " + sender.getNickname() + ": " + newMessage + "\n", &sender));
+			return(channel.messageToGroupNoSender(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + newMessage + "\r\n", &sender));
 		}
 	}
 	std::map<int, Client*>& clients = server.getClients();
@@ -364,7 +362,6 @@ void commandMSG(Client &sender, Server &server, const std::string &receiver, con
 			{
 				std::string newMessage = message.substr(1);
 				return(destinatary->messageToMyself(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + newMessage + "\r\n"));
-				/* return(sender.messageToMyself(":" + receiver + " PRIVMSG " + sender.getNickname() + " " + message + "\r\n")); */
 			}
 			return(sender.messageToSomeone("~ [PRV] " + sender.getNickname() + ": " + message + "\n", destinatary));
 		}
@@ -840,7 +837,7 @@ void commandMODE(Client &sender, Server &server, const std::string &channelName,
 		sender.messageToMyself("~ ERROR: User '" + param + "' does not exist\n"); //El usuario no esta en el servidor
 	}
 	else
-		sender.messageToMyself("~ ERROR: Invalid mode command. Modes are: +|- i, t, k, o, l, b\n");
+		sender.messageToMyself(":ircserver 472 " + sender.getNickname() + " " + channelName + " ERROR: Invalid mode command. Modes are: +|- i, t, k, o, l, b\r\n");
 }
 
 void commandREMOVE(Client &sender, Server &server, const std::string &channelName, const std::string &param, const std::string &other)
@@ -902,7 +899,7 @@ void Server::handleCommand(Client &client, Server &server, const std::string &cm
 	if (cmd == "CAP")
 		return(client.messageToMyself("CAP * LS\r\n"));
 	if (cmd == "QUIT")// Sintaxis: QUIT
-		commandQUIT(client, server, param);
+		commandQUIT(client, server);
 	else if (cmd == "VIVA")
 		client.messageToMyself("~ ESPAÑA\n");
 	else if (cmd == "COMMANDS")// Sintaxis: COMMANDS [cmd]
@@ -927,8 +924,8 @@ void Server::handleCommand(Client &client, Server &server, const std::string &cm
 		commandJOIN(client, server, param, param2, param3);
 	else if (cmd == "WHO")
 		return;
-	else if (cmd == "LEAVE"  || cmd == "PART")// Sintaxis: LEAVE <#channel>
-		commandLEAVE(client, server, param, param2);
+	else if (cmd == "PART")// Sintaxis: PART <#channel>
+		commandPART(client, server, param, param2);
 	else if (cmd == "KICK")// Sintaxis: KICK <#channel> <user> <reason>
 		commandKICK(client, server, param, param2, param3);
 	else if (cmd == "INVITE")// Sintaxis: INVITE <#channel> <user> 

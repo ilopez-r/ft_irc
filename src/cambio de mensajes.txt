@@ -1,0 +1,12 @@
+
+--------------------ERRORES----------------------
+sender.messageToMyself(":ircserver 472 " + sender.getNickname() + " " + channelName + " ERROR: Invalid mode command. Modes are: +|- i, t, k, o, l, b\r\n");
+
+-------------------Mensajes a mi mismo sin especificar canal---------------------
+return(destinatary->messageToMyself(":" + sender.getNickname() + " PRIVMSG " + destinatary.getNickname() + " ~ You are now an operator in channel ~\r\n"));
+
+--------------------Mensajes a mi mismo dentro de un canal----------------
+firstClient->messageToMyself(":" + firstClient->getNickname() + " PRIVMSG " + channelName + " ~ You are now an operator in channel ~\r\n");
+
+--------------------Mensajes a grupo-------------------
+channel.messageToGroupNoSender(":" + client.getNickname() + " PRIVMSG " + channelName + " ~ Left channel ~\r\n", &client);

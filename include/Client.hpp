@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/12/22 14:59:19 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/16 18:56:56 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/17 15:27:41 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -31,10 +31,9 @@ class Client
 			//*------------------Fd------------------*//
 			int getFd() const;
 
-			std::string &getIp();
-
 			//*------------------Buffer------------------*//
 			std::string &getBuffer();
+			void setBuffer(std::string message);
 
 			//*------------------Nickname------------------*//
 			const std::string &getNickname() const;
