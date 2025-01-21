@@ -2,11 +2,7 @@
 
 void sendHelp(Client& sender)
 {
-	std::string helpMsg = 
-		"~ [BOT] Available commands:\n"
-		"   * help: Show this help message\n"
-		"   * joke: Tell you a random joke\n"
-		"   * play: Play rock, paper, scissors\n";
+	std::string helpMsg = "~ Available commands: Help (Show this help message), Joke (Tell you a random joke), Play (Play rock, paper, scissors)\n";
 	sender.messageToMyself(helpMsg);
 }
 
@@ -26,15 +22,14 @@ void tellJoke(Client& sender)
 		"¿Qué hace Nestor cuando viene un puma? Fuma. 🚬",
 	};
 	int randomIndex = rand() % 10;
-	sender.messageToMyself("~ [BOT] " + jokes[randomIndex] + "\n");
+	sender.messageToMyself("~ " + jokes[randomIndex] + "\n");
 }
 
 void playGame(Client& sender)
 {
 	std::string options[] = {"Rock 🪨", "Paper 📄", "Scissors ✂️ "};
 	int randomIndex = rand() % 3;
-	sender.messageToMyself("~ [BOT] Let's play Rock, Paper, Scissors!\n");
-	sender.messageToMyself("~ [BOT] I choose: " + options[randomIndex] + "!\n");
+	sender.messageToMyself("~ Let's play Rock, Paper, Scissors! I choose: " + options[randomIndex] + "!\n");
 }
 
 void Server::handleBotCommand(Client& sender, const std::string& command)
@@ -47,5 +42,5 @@ void Server::handleBotCommand(Client& sender, const std::string& command)
 	else if (command == "play" || command == "PLAY")
 		playGame(sender);
 	else
-		sender.messageToMyself("~ [BOT] Unknown command. Try: help, joke, or play.\n");
+		sender.messageToMyself("~ Unknown command. Try: help, joke, or play.\n");
 }

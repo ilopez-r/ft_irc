@@ -10,9 +10,9 @@ std::string to_string (int number)
 void commandPART(Client &client, Server &server, const std::string &channelName, const std::string &other)
 {
 	if (channelName.empty())// Verificar que se ha especificado un canal
-		return(client.messageToMyself(":ircserver 461 " + client.getNickname() + " " + channelName + " ERROR: No channel name provided. Use: PART <#channel>\r\n"));
+		return(client.messageToMyself(":ircserver 461 " + client.getNickname() + " ERROR: No channel name provided. Use: PART <#channel>\r\n"));
 	if (channelName[0] != '#')//Verificar que el canal empieze por #
-		return(client.messageToMyself(":ircserver 403 " + client.getNickname() + " " + channelName + " ERROR: Channel name must start with '#'\r\n"));
+		return(client.messageToMyself(":ircserver 403 " + client.getNickname() + " ERROR: Channel name must start with '#'\r\n"));
 	std::string parsedOther = other;
 	if (other[0] == ':')
 		parsedOther = other.substr(1);
@@ -92,9 +92,11 @@ void commandCOMMANDS(Client &client, const std::string &cmd, const std::string &
 	for (std::size_t i = 0; i < cmd.size(); i++)
 		cmdUpper[i] = toupper(cmd[i]);
 	if (!other.empty())
-		return(client.messageToMyself(":ircserver 461 " + client.getNickname() + " ERROR: Command 'COMMANDS' does not accept any more parameters than an existing command. Use: COMMANDS [cmd]\r\n"));
-		/* return(client.messageToMyself(":" + client.getNickname() + " PRIVMSG " + client.getNickname() + " ERROR: Command 'COMMANDS' does not accept any more parameters than an existing command. Use: COMMANDS [cmd]\r\n"));
-		return(client.messageToMyself("~ ERROR: Command 'COMMANDS' does not accept any more parameters than an existing command. Use: COMMANDS [cmd]\n")); */
+	{
+		if (!client.getNickname().empty())
+			return(client.messageToMyself(":ircserver 461 " + client.getNickname() + " ERROR: Command 'COMMANDS' does not accept any more parameters than an existing command. Use: COMMANDS [cmd]\r\n"));
+		return(client.messageToMyself(":ircserver 461 ERROR: Command 'COMMANDS' does not accept any more parameters than an existing command. Use: COMMANDS [cmd]\r\n"));
+	}
 	std::string QUIT = "~ QUIT: Disconnect from the server\n";
 	if (cmdUpper == "QUIT")
 		return(client.messageToMyself(QUIT));
@@ -152,15 +154,25 @@ void commandCOMMANDS(Client &client, const std::string &cmd, const std::string &
 	std::string COMMANDS = "~ COMMANDS [cmd]: Show instructions. Type a command <cmd> to see only its instructions\n";
 	if (cmdUpper == "")
 		return(client.messageToMyself(QUIT + PASS + USER + NICK + PROFILE + CHANNELS + MSG + JOIN + PART + KICK + INVITE + UNINVITE + TOPIC + KEY + MODE + REMOVE + COMMANDS));
-	return(client.messageToMyself("~ ERROR: Command '" + cmdUpper + "' is not an existing command. Use: COMMANDS [cmd]\n"));
+	if (!client.getNickname().empty())
+		return(client.messageToMyself(":ircserver 421 " + client.getNickname() + " ERROR: Command '" + cmdUpper + "' is not an existing command. Use: COMMANDS [cmd]\n"));
+	return(client.messageToMyself(":ircserver 421 ERROR: Command '" + cmdUpper + "' is not an existing command. Use: COMMANDS [cmd]\n"));
 }
 
 void commandPASS(Client &client, Server &server, const std::string &pass, const std::string &other)
 {
 	if (client.getPasswordSent() == true)//Verificar que no se mande 2 veces la misma pass
-			return(client.messageToMyself("~ ERROR: 'PASS' command already sent\n"));
+	{
+		if (!client.getNickname().empty())
+			return(client.messageToMyself(":ircserver 462 " + client.getNickname() + " ERROR: 'PASS' command already sent\r\n"));
+		return(client.messageToMyself(":ircserver 462 ERROR: 'PASS' command already sent\r\n"));
+	}
 	if (other != "")// Verificar ninguna otra palabara detras de la password
-		return(client.messageToMyself("~ ERROR: Command 'PASS' does not accept any more parameters than the PASSWORD. Use: PASS <password>\n"));
+	{
+		if (!client.getNickname().empty())
+			return(client.messageToMyself(":ircserver 461 " + client.getNickname() + " ERROR: Command 'PASS' does not accept any more parameters than the PASSWORD. Use: PASS <password>\r\n"));
+		return(client.messageToMyself(":ircserver 461 ERROR: Command 'PASS' does not accept any more parameters than the PASSWORD. Use: PASS <password>\r\n"));
+	}
 	if (pass == server.getPassword())// Verificar si la pass es correcta
 	{
 		std::cout << "Client (" << client.getFd() << ") accepted in server\n";
@@ -168,22 +180,38 @@ void commandPASS(Client &client, Server &server, const std::string &pass, const 
 		client.messageToMyself("~ Correct password! You must now use commands USER <username> and NICK <nickname> to start using the server\n");
 	}
 	else //password incorrecta
-		client.messageToMyself("~ ERROR: Incorrect password. Use: PASS <password>\n");
+	{
+		if (!client.getNickname().empty())
+			return(client.messageToMyself(":ircserver 464 " + client.getNickname() + " ERROR: Incorrect password. Use: PASS <password>\r\n"));
+		return(client.messageToMyself(":ircserver 464 ERROR: Incorrect password. Use: PASS <password>\r\n"));
+	}
 }
 
 void commandUSER(Client &client, const std::string &username, const std::string &other, const std::string &other2)
 {
 	if (username.empty())// Validar username no esta vacio
-		return(client.messageToMyself("~ ERROR: No username provided. Use: USER <username>\n"));
+	{
+		if (!client.getNickname().empty())
+			return(client.messageToMyself(":ircserver 461 " + client.getNickname() + " ERROR: No username provided. Use: USER <username>\r\n"));
+		return(client.messageToMyself(":ircserver 461 ERROR: No username provided. Use: USER <username>\r\n"));
+	}
 	if (other2 == "0 * :realname")
 	{
 		client.setUsername(username);
 		return(client.messageToMyself("~ You setted your username to '" + username + "'\n"));
 	}
 	if (!other.empty()) // Verificar ningun otra palabara detras del username
-		return(client.messageToMyself("~ ERROR: Command 'USER' does not accept any more parameters than the USERNAME. Use: USER <username>\n"));
-	if (username.length() > 9)// Verificar que no sea mas largo de 9 caracteres	
-		return(client.messageToMyself("~ ERROR: Username cannot be longer than 9 characters\n"));
+	{
+		if (!client.getNickname().empty())
+			return(client.messageToMyself(":ircserver 461 " + client.getNickname() + " ERROR: Command 'USER' does not accept any more parameters than the USERNAME. Use: USER <username>\r\n"));
+		return(client.messageToMyself(":ircserver 461 ERROR: Command 'USER' does not accept any more parameters than the USERNAME. Use: USER <username>\r\n"));
+	}
+	if (username.length() > 9)// Verificar que no sea mas largo de 9 caracteres
+	{
+		if (!client.getNickname().empty())
+			return(client.messageToMyself(":ircserver 436 " + client.getNickname() + " ERROR: Username cannot be longer than 9 characters\r\n"));
+		return(client.messageToMyself(":ircserver 436 ERROR: Username cannot be longer than 9 characters\r\n"));
+	}
 	client.setUsername(username);
 	client.messageToMyself("~ You setted your username to '" + username + "'\n");
 }
@@ -191,22 +219,40 @@ void commandUSER(Client &client, const std::string &username, const std::string 
 void commandNICK(Client &client, Server &server, const std::string &nickname, const std::string &other)
 {
 	if (nickname.empty())// Validar nickname no esta vacio
-		return(client.messageToMyself("~ ERROR: No nickname provided. Use: NICK <nickname>\n"));
+		return(client.messageToMyself(":ircserver 431 ERROR: No nickname provided. Use: NICK <nickname>\r\n"));
 	if (!other.empty()) // Verificar ningun otra palabara detras del nickname
-		return(client.messageToMyself("~ ERROR: Command 'NICK' does not accept any more parameters than the NICKNAME. Use: NICK <nickname>\n"));
+		return(client.messageToMyself(":ircserver 461 ERROR: Command 'NICK' does not accept any more parameters than the NICKNAME. Use: NICK <nickname>\n"));
 	for (int i = 0; nickname[i]; i++)
+	{
 		if (nickname[i] == '#' || nickname[i] == '@' || nickname[i] == '!' || nickname[i] == '?')
-			return(client.messageToMyself("~ ERROR: Nickname cannot include especial characters like: #, @, !, ?\n"));
-	if (nickname.length() > 9)// Verificar que no sea mas largo de 9 caracteres	
-		return(client.messageToMyself("~ ERROR: Nickname cannot be longer than 9 characters\n"));
+		{
+			if (!client.getNickname().empty())
+				return(client.messageToMyself(":ircserver 999 " + client.getNickname() + " ERROR: Nickname cannot include especial characters like: #, @, !, ?\r\n"));
+			return(client.messageToMyself(":ircserver 999 ERROR: Nickname cannot include especial characters like: #, @, !, ?\r\n"));
+		}
+	}
+	if (nickname.length() > 9)// Verificar que no sea mas largo de 9 caracteres
+	{
+		if (!client.getNickname().empty())
+			return(client.messageToMyself(":ircserver 436 " + client.getNickname() + " ERROR: Nickname cannot be longer than 9 characters\r\n"));
+		return(client.messageToMyself(":ircserver 436 ERROR: Nickname cannot be longer than 9 characters\r\n"));
+	}
 	if (nickname == "bot" || nickname == "BOT")
-		return(client.messageToMyself("~ ERROR: Nickname cannot be '" + nickname + "'\n"));
+	{
+		if (!client.getNickname().empty())
+			return(client.messageToMyself(":ircserver 436 " + client.getNickname() + " ERROR: Nickname cannot be '" + nickname + "'\r\n"));
+		return(client.messageToMyself(":ircserver 436 ERROR: Nickname cannot be '" + nickname + "'r\n"));
+	}
 	std::map<int, Client*>& clients = server.getClients();
 	for (std::map<int, Client*>::const_iterator it = clients.begin(); it != clients.end(); ++it)
 	{
 		Client *clients = it->second;
 		if (clients->getNickname() == nickname)// Verificar si el nickname ya está en uso
-			return(client.messageToMyself("~ ERROR: Nickname '" + nickname + "' is already in use\n")); // El nickname ya está en uso.
+		{
+			if (!client.getNickname().empty())
+				return(client.messageToMyself(":ircserver 433 " + client.getNickname() + " ERROR: Nickname '" + nickname + "' is already in use\r\n"));// El nickname ya está en uso.
+			return(client.messageToMyself(":ircserver 433 ERROR: Nickname '" + nickname + "' is already in user\n"));
+		}
 	}
 	std::string oldNickname = client.getNickname(); //Guardar el nickname anterior
 	client.setNickname(nickname);// Asignar el nickname al cliente.
@@ -223,7 +269,7 @@ void commandNICK(Client &client, Server &server, const std::string &nickname, co
 		Channel &channel = it->second;
 		std::string channelName = it->first;
 		if (channel.hasClient(&client))
-			channel.messageToGroupNoSender("~ [" + channelName + "]: '" + oldNickname + "' changed his nickname to '" + nickname + "'\n", &client);
+			channel.messageToGroupNoSender(":" + client.getNickname() + " PRIVMSG " + channelName + " ~ '" + oldNickname + "' changed his nickname to '" + nickname + "' ~\r\n", &client);
 	}
 }
 
@@ -239,14 +285,14 @@ void commandPROFILE(Client &client, const std::string &param)
 void commandCHANNELS(Client &client, Server &server, const std::string &param, const std::string &other)
 {
 	if ((param != "all" && param != "") || !other.empty())//Verificar ningun otra palabara detras de CHANNELS
-		return(client.messageToMyself("~ ERROR: Command 'CHANNELS' does not accept any more parameters than ALL. Use: CHANNELS [all]\n"));
+		return(client.messageToMyself(":ircserver 461 " + client.getNickname() + " ERROR: Command 'CHANNELS' does not accept any more parameters than ALL. Use: CHANNELS [all]\r\n"));
 	if (server.getChannels().empty())//Si no hay canales creados
 		return(client.messageToMyself("~ No channels are currently available\n"));
 	if (param == "all")//Si se quieren ver todos los canales que existen
 	{
 		client.messageToMyself("~ List of all channels:\n");
 		std::map<std::string, Channel>& channels = server.getChannels();
-		for (std::map<std::string, Channel>::iterator it = channels.begin(); it != channels.end(); it++)//Recorrer todos los acanales que hay ya creados
+		for (std::map<std::string, Channel>::iterator it = channels.begin(); it != channels.end(); it++)//Recorrer todos los canales que hay ya creados
 		{
 			const std::string &channelName = it->first;
 			const Channel &channel = it->second;
@@ -317,18 +363,18 @@ void commandCHANNELS(Client &client, Server &server, const std::string &param, c
 void commandMSG(Client &sender, Server &server, const std::string &receiver, const std::string &message, const std::string &other, const std::string &cmd)
 {
 	if (receiver.empty() || message.empty())//Verificar que el destinatario y el mensaje no esten vacios
-		return(sender.messageToMyself("~ ERROR: Invalid MSG format. Use MSG <receiver> <message>\n"));
+		return(sender.messageToMyself(":ircserver 461 " + sender.getNickname() + " ERROR: Invalid MSG format. Use MSG <receiver> <message>\n"));
 	if (receiver == sender.getNickname())//Verificar que no me este mandando un mensaje a mi mismo
-		return(sender.messageToMyself("~ ERROR: You cannot send a message to yourself ('" + sender.getNickname() + "')\n"));
+		return(sender.messageToMyself(":ircserver 999 " + sender.getNickname() + "  ERROR: You cannot send a message to yourself ('" + sender.getNickname() + "')\n"));
 	if (receiver == "bot" || receiver == "BOT")
 	{
 		if (!other.empty())
-			return(sender.messageToMyself("~ ERROR: Command 'MSG BOT' does not accept any more parameters than help/joke/play. Use: MSG bot help/joke/play\n"));
-		/* if (cmd == "PRIVMSG")
-		{
-			return ();
-		} */
-		return(server.getHandleBotCommand(sender, message));
+			return(sender.messageToMyself(":ircserver 461 " + sender.getNickname() + " ERROR: Command 'MSG BOT' does not accept any more parameters than help/joke/play. Use: MSG bot help/joke/play\n"));
+		std::string newMessage = message;
+		if (message[0] == ':')
+			newMessage = message.substr(1);
+		sender.messageToMyself(":bot PRIVMSG ");
+		return(server.getHandleBotCommand(sender, newMessage));
 	}
 	if (receiver[0] == '#')// Si el receptor es un canal
 	{
@@ -348,8 +394,12 @@ void commandMSG(Client &sender, Server &server, const std::string &receiver, con
 		}
 		if (cmd == "PRIVMSG")
 		{
-			std::string newMessage = message.substr(1);
-			return(channel.messageToGroupNoSender(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + newMessage + "\r\n", &sender));
+			if (message[0] == ':')
+			{
+				std::string newMessage = message.substr(1);
+				return(channel.messageToGroupNoSender(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + newMessage + "\r\n", &sender));
+			}
+			return(channel.messageToGroup(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + message + "\r\n"));
 		}
 	}
 	std::map<int, Client*>& clients = server.getClients();
@@ -360,8 +410,13 @@ void commandMSG(Client &sender, Server &server, const std::string &receiver, con
 		{
 			if (cmd == "PRIVMSG")
 			{
-				std::string newMessage = message.substr(1);
-				return(destinatary->messageToMyself(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + newMessage + "\r\n"));
+				if (message[0] == ':')
+				{
+					std::string newMessage = message.substr(1);
+					return(destinatary->messageToMyself(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + newMessage + "\r\n"));
+				}
+				else
+					return(destinatary->messageToMyself(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + message + "\r\n"));
 			}
 			return(sender.messageToSomeone("~ [PRV] " + sender.getNickname() + ": " + message + "\n", destinatary));
 		}
@@ -422,7 +477,7 @@ void commandJOIN(Client &client, Server &server, const std::string &channelName,
 	client.messageToMyself(":" + client.getNickname() + " JOIN :" + channelName + "\r\n");
 	if (!channel.isTopicEmpty()) // 📢 2. Enviar el TEMA actual del canal (RPL_TOPIC 332)
         client.messageToMyself(":ircserver 332 " + client.getNickname() + " " + channelName + " :" + channel.getTopic() + "\r\n");
-	// 📢 3. Enviar la lista de usuarios (RPL_NAMREPLY 353
+	// 📢 3. Enviar la lista de usuarios (RPL_NAMREPLY 353)
 	std::string userList = "=" + channelName + " :";
 	const std::set<Client*>& clientsInChannel = channel.getClients();
 	for (std::set<Client*>::const_iterator it = clientsInChannel.begin(); it != clientsInChannel.end(); ++it) {
