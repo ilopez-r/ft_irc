@@ -37,8 +37,17 @@ void commandPART(Client &client, Server &server, const std::string &channelName,
 		channel.addOperator(firstClient);//Lo insertamos en el contenedor de operadores
 		std::cout << "Client (" << firstClient->getFd() << ") '" << firstClient->getNickname() << "' is now an operator in channel: " << channelName << "\r\n";
 		firstClient->messageToMyself(":" + firstClient->getNickname() + " PRIVMSG " + channelName + " ~ You are now an operator in channel ~\r\n");
-		channel.messageToGroupNoSender(":" + firstClient->getNickname() + " PRIVMSG " + channelName + " ~ Is now an operator in channel ~\r\n", &client);
+		channel.messageToGroupNoSender(":" + firstClient->getNickname() + " PRIVMSG " + channelName + " ~ Is now an operator in channel ~\r\n", firstClient);
 	}
+	std::string userList = channelName + " :";
+	for (std::set<Client*>::const_iterator it = channel.getClients().begin(); it != channel.getClients().end(); ++it)//Recorrer lista de clientes del canal
+	{
+		if (channel.isOperator(*it))//Si el cliente es operador, ponerle un @ delante
+			userList += "@";
+		userList += (*it)->getNickname() + " ";//Añadir cliente a la lista
+	}
+	channel.messageToGroup(":ircserver 353 " + client.getNickname() + " " + channelName + " " + userList + "\r\n");// Enviar la lista de usuarios (RPL_NAMREPLY 353)
+	channel.messageToGroup(":ircserver 366 " + channelName + " " + channelName + "\r\n");// Fin de la lista de usuarios (RPL_ENDOFNAMES 366)
 	if (channel.getClientsNumber() == 0)//Si no hay nadie más en el canal, eliminar canal
 	{
 		std::cout << "Channel: " << channelName << " was removed\n";
@@ -360,7 +369,7 @@ void commandCHANNELS(Client &client, Server &server, const std::string &param, c
 	}
 }
 
-void commandMSG(Client &sender, Server &server, const std::string &receiver, const std::string &message, const std::string &other, const std::string &cmd)
+void commandPRIVMSG(Client &sender, Server &server, const std::string &receiver, const std::string &message, const std::string &other)
 {
 	if (receiver.empty() || message.empty())//Verificar que el destinatario y el mensaje no esten vacios
 		return(sender.messageToMyself(":ircserver 461 " + sender.getNickname() + " ERROR: Invalid MSG format. Use MSG <receiver> <message>\n"));
@@ -382,25 +391,15 @@ void commandMSG(Client &sender, Server &server, const std::string &receiver, con
 		std::map<std::string, Channel>::iterator it = channels.find(receiver);
 		Channel &channel = it->second;
 		if (it == channels.end())//Comprobar si el canal existe
-			return(sender.messageToMyself("~ ERROR: Channel " + receiver + " does not exist\n"));
+			return(sender.messageToMyself(":ircserver 403 " + sender.getNickname() + " ERROR: Channel " + receiver + " does not exist\n"));
 		if (!channel.hasClient(&sender))// Comprobar si el que envia no está en el canal
-			return(sender.messageToMyself("~ ERROR: To send a message in channel: " + channel.getName() + " you have to JOIN it first\n"));
-		if (cmd == "MSG")
+			return(sender.messageToMyself(":ircserver 404 " + sender.getNickname() + " ERROR: To send a message in channel: " + channel.getName() + " you have to JOIN it first\n"));
+		if (message[0] == ':')
 		{
-			if (channel.isOperator(&sender))//Comprobar si soy operador
-				return(channel.messageToGroup("~ [" + channel.getName() + "][OP] " + sender.getNickname() + ": " + message + "\n"));
-			else// Enviar mensaje al canal
-				return(channel.messageToGroup("~ [" + channel.getName() + "] " + sender.getNickname() + ": " + message + "\n"));
+			std::string newMessage = message.substr(1);
+			return(channel.messageToGroupNoSender(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + newMessage + "\r\n", &sender));
 		}
-		if (cmd == "PRIVMSG")
-		{
-			if (message[0] == ':')
-			{
-				std::string newMessage = message.substr(1);
-				return(channel.messageToGroupNoSender(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + newMessage + "\r\n", &sender));
-			}
-			return(channel.messageToGroup(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + message + "\r\n"));
-		}
+		return(channel.messageToGroup(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + message + "\r\n"));
 	}
 	std::map<int, Client*>& clients = server.getClients();
 	for (std::map<int, Client*>::iterator it = clients.begin(); it != clients.end(); ++it)//Recorrer todos los clientes que hay en el servidor
@@ -408,32 +407,28 @@ void commandMSG(Client &sender, Server &server, const std::string &receiver, con
 		Client *destinatary = it->second;
 		if (destinatary->getNickname() == receiver)//Si encuentra al destinatario en el servidor, le manda el mensaje
 		{
-			if (cmd == "PRIVMSG")
+			if (message[0] == ':')
 			{
-				if (message[0] == ':')
-				{
-					std::string newMessage = message.substr(1);
-					return(destinatary->messageToMyself(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + newMessage + "\r\n"));
-				}
-				else
-					return(destinatary->messageToMyself(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + message + "\r\n"));
+				std::string newMessage = message.substr(1);
+				return(destinatary->messageToMyself(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + newMessage + "\r\n"));
 			}
-			return(sender.messageToSomeone("~ [PRV] " + sender.getNickname() + ": " + message + "\n", destinatary));
+			else
+				return(destinatary->messageToMyself(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + message + "\r\n"));
 		}
 	}
-	sender.messageToMyself("~ ERROR: User '" + receiver + "' does not exist\n");// Si no se encuentra el receptor
+	sender.messageToMyself(":ircserver 401 " + sender.getNickname() + " ERROR: User '" + receiver + "' does not exist\n");// Si no se encuentra el receptor
 }
 
 void commandJOIN(Client &client, Server &server, const std::string &channelName, const std::string &key, const std::string &other)
 {
 	if (channelName.empty())// Verificar que se ha especificado un canal
-		return(client.messageToMyself("~ ERROR: No channel name provided. Use: JOIN <#channel> [key]\n"));
+		return(client.messageToMyself(":ircserver 461 " + client.getNickname() + " ERROR: No channel name provided. Use: JOIN <#channel> [key]\n"));
 	if (channelName[0] != '#')//Verificar que el canal empieze por #
-		return(client.messageToMyself("~ ERROR: Channel name must start with '#'\n"));
+		return(client.messageToMyself(":ircserver 421 " + client.getNickname() + " ERROR: Channel name must start with '#'\n"));
 	if (channelName.size() < 2)
-		return(client.messageToMyself("~ ERROR: Channel name cannot be empty\n"));
+		return(client.messageToMyself(":ircserver 461 " + client.getNickname() + " ERROR: Channel name cannot be empty\n"));
 	if (!other.empty())
-		return(client.messageToMyself("~ ERROR: Command 'JOIN' does not accept any more parameters than #CHANNEL and KEY. Use: JOIN <#channel> [key]\n"));
+		return(client.messageToMyself(":ircserver 461 " + client.getNickname() + " ERROR: Command 'JOIN' does not accept any more parameters than #CHANNEL and KEY. Use: JOIN <#channel> [key]\n"));
 	std::map<std::string, Channel>& channels = server.getChannels();
 	if (channels.find(channelName) == channels.end())// Comprueba si el canal no existe en el contenedor channels
 	{
@@ -442,70 +437,66 @@ void commandJOIN(Client &client, Server &server, const std::string &channelName,
 		channel.addClient(&client);//Añadir al cliente al canal
 		channel.addOperator(&client); // Cliente se convierte en operador inicial.
 		std::cout << "Client (" << client.getFd() << ") '" << client.getNickname() << "' created and joined channel: " << channelName << "\n";//Mensaje en servidor
-		client.messageToMyself("~ You have created and joined channel: " + channelName + "\n");//Mensaje al cliente
+		client.messageToMyself(":" + client.getNickname() + " JOIN " + channelName + " ~ You have created and joined channel ~\r\n");//Mensaje al cliente
 		if (!key.empty())//Si se puso algo detrás de #channel
-			client.messageToMyself("~ Channel: " + channelName + " does not need a key to enter\n");//Mensaje al cliente
+			client.messageToMyself(":ircserver 0 " + client.getNickname() + " " + channelName + " ~ Does not need a key to enter ~\r\n");//Mensaje al cliente
 	}
 	else if(channels.find(channelName) != channels.end())// Si el canal ya existe
 	{
 		Channel &channel = channels.find(channelName)->second;// Accede al canal (->second es el objeto de la clase channel)
 		if (channel.hasClient(&client))// Comprobar si el cliente ya está en el canal
-			return(client.messageToMyself("~ ERROR: You are already in channel: " + channelName + "\n"));
+			return(client.messageToMyself(":ircserver 0 " + client.getNickname() + " " + channelName + " ~ You are already in channel~ \n"));
 		if (channel.isBanned(&client))// Verificar si el cliente está baneado
-			return(client.messageToMyself("~ ERROR: You are banned in channel: " + channelName + "\n"));
+			return(client.messageToMyself(":ircserver 465 " + client.getNickname() + " ERROR: You are banned in channel: " + channelName + "\n"));
 		if (channel.isInviteOnly() && !channel.isInvited(&client))// Si el canal está en modo invite-only, verificar si el cliente ha sido invitado
-			return(client.messageToMyself("~ ERROR: Channel: " + channelName + " is on INVITE-ONLY mode\n"));
+			return(client.messageToMyself(":ircserver 473 " + client.getNickname() + " ERROR: Channel: " + channelName + " is on INVITE-ONLY mode\n"));
 		if (channel.getUserLimit() > 0 && channel.getUserLimit() <= channel.getClientsNumber())// Comprobar si hay límite de usuarios y si ya se ha alcanzado el máximo
-			return(client.messageToMyself("~ ERROR: Channel: " + channelName + " is full\n"));
-		if (channel.getKey().empty() && !key.empty())//Si no esta en modo key y yo he puesto una contraseña
-			client.messageToMyself("~ Channel: " + channelName + " does not need a key to enter\n");
-		if (!channel.getKey().empty() && !key.empty() && channel.isInvited(&client))//Si esta en modo key y yo he puesto una key, pero estoy invitado
-			client.messageToMyself("~ You do not need a key to enter in channel: " + channelName + " beacause you are invited\n");
+			return(client.messageToMyself(":ircserver 471 " + client.getNickname() + " ERROR: Channel: " + channelName + " is full\n"));
 		if (!channel.getKey().empty() && !channel.isInvited(&client))// Comprobar si el canal está en modo key y no estoy invitado
 		{
 			if (key.empty())//Si no he puesto ninguna key
-				return(client.messageToMyself("~ ERROR: Channel: " + channelName + " is in KEY mode. Use: JOIN <#channel> <key>\n"));
+				return(client.messageToMyself(":ircserver 475 " + client.getNickname() + " ERROR: Channel: " + channelName + " is in KEY mode. Use: JOIN <#channel> <key>\n"));
 			if (key != channel.getKey())//Si la key es incorrecta
-				return(client.messageToMyself("~ ERROR: Incorrect key\n"));
+				return(client.messageToMyself(":ircserver 475 " + client.getNickname() + " ERROR: Incorrect key\n"));
 		}
 		channel.addClient(&client);//Añade al cliente.
 		std::cout << "Client (" << client.getFd() << ") '" << client.getNickname() << "' joined channel: " << channelName << "\n";//Mensaje en servidor
-		client.messageToMyself("~ You joined channel: " + channelName + "\n");//Mensaje al cliente
-		channel.messageToGroupNoSender("~ '" + client.getNickname() + "' joined channel: " + channelName + "\n", &client);//Mensaje al grupo
+		client.messageToMyself(":" + client.getNickname() + " JOIN " + channelName + " ~ You joined channel ~\r\n");//Mensaje al cliente
+		channel.messageToGroupNoSender(":" + client.getNickname() + " PRIVMSG " + channelName + " ~ Joined channel ~\r\n", &client);//Mensaje al grupo
+		if (channel.getKey().empty() && !key.empty())//Si no esta en modo key y yo he puesto una contraseña
+			client.messageToMyself(":ircserver 0 " + client.getNickname() + " " + channelName + " ~ Does not need a key to enter ~\r\n");
+		if (!channel.getKey().empty() && !key.empty() && channel.isInvited(&client))//Si esta en modo key y yo he puesto una key, pero estoy invitado
+			client.messageToMyself(":ircserver 0 " + client.getNickname() + " " + channelName + " ~ You do not need a key to enter in channel beacause you are invited ~\r\n");
 	}
 	Channel &channel = channels.find(channelName)->second;// Accede al canal (->second es el objeto de la clase channel)
-	client.messageToMyself(":" + client.getNickname() + " JOIN :" + channelName + "\r\n");
-	if (!channel.isTopicEmpty()) // 📢 2. Enviar el TEMA actual del canal (RPL_TOPIC 332)
-        client.messageToMyself(":ircserver 332 " + client.getNickname() + " " + channelName + " :" + channel.getTopic() + "\r\n");
-	// 📢 3. Enviar la lista de usuarios (RPL_NAMREPLY 353)
-	std::string userList = "=" + channelName + " :";
-	const std::set<Client*>& clientsInChannel = channel.getClients();
-	for (std::set<Client*>::const_iterator it = clientsInChannel.begin(); it != clientsInChannel.end(); ++it) {
-		if (channel.isOperator(*it))
-			userList += "@";  // El operador se marca con "@"
-		userList += (*it)->getNickname() + " ";
+	if (!channel.isTopicEmpty())// Si el canal tiene topic
+		client.messageToMyself(":ircserver 332 " + client.getNickname() + " " + channelName + " :" + channel.getTopic() + "\r\n");// Enviar el TEMA actual del canal (RPL_TOPIC 332)
+	std::string userList = channelName + " :";
+	for (std::set<Client*>::const_iterator it = channel.getClients().begin(); it != channel.getClients().end(); ++it)//Recorrer lista de clientes del canal
+	{
+		if (channel.isOperator(*it))//Si el cliente es operador, ponerle un @ delante
+			userList += "@";
+		userList += (*it)->getNickname() + " ";//Añadir cliente a la lista
 	}
-	client.messageToMyself(":ircserver 353 " + client.getNickname() + " " + userList + "\r\n");
-
-	// 📢 4. Fin de la lista de usuarios (RPL_ENDOFNAMES 366)
-	client.messageToMyself(":ircserver 366 " + client.getNickname() + " " + channelName + " :End of /NAMES list.\r\n");
+	channel.messageToGroup(":ircserver 353 " + client.getNickname() + " " + channelName + " " + userList + "\r\n");// Enviar la lista de usuarios (RPL_NAMREPLY 353)
+	channel.messageToGroup(":ircserver 366 " + channelName + " " + channelName + "\r\n");// Fin de la lista de usuarios (RPL_ENDOFNAMES 366)
 }
 
 void commandKICK(Client &sender, Server &server, const std::string &channelName, const std::string &user, const std::string &reason)
 {
-	if (channelName.empty() || user.empty() || reason.empty())//Verificar que ninguno de los parametros este vacio
-		return(sender.messageToMyself("~ ERROR: Invalid KICK command syntax. Use: KICK <#channel> <user> <reason>\n"));
+	if (channelName.empty() || user.empty())//Verificar que ninguno de los parametros este vacio
+		return(sender.messageToMyself(":ircserver 461 " + sender.getNickname() + " ERROR: Invalid KICK command syntax. Use: KICK <#channel> <user> <reason>\n"));
 	std::map<std::string, Channel>& channels = server.getChannels();
 	std::map<std::string, Channel>::iterator it = channels.find(channelName);
 	Channel &channel = it->second;
 	if (it == channels.end())//Comprobar si el canal existe
-		return(sender.messageToMyself("~ ERROR: Channel: " + channelName + " does not exist\n"));
+		return(sender.messageToMyself(":ircserver 403 " + sender.getNickname() + " ERROR: Channel: " + channelName + " does not exist\n"));
 	if (!channel.hasClient(&sender))//Comprobar si estoy está dentro del canal
-		return(sender.messageToMyself("~ ERROR: You are not in channel: " + channelName + "\n"));
+		return(sender.messageToMyself(":ircserver 442 " + sender.getNickname() + " ERROR: You are not in channel: " + channelName + "\n"));
 	if (!channel.isOperator(&sender))//Comprobar si soy operador
-		return(sender.messageToMyself("~ ERROR: You are not an operator of channel: " + channelName + ".\n"));
+		return(sender.messageToMyself(":ircserver 482 " + sender.getNickname() + " ERROR: You are not an operator of channel: " + channelName + "\n"));
 	if (user == sender.getNickname())//Verificar que no me este kickeando a mi mismo
-		return(sender.messageToMyself("~ ERROR: You cannot kick yourself ('" + sender.getNickname() + "') from a channel\n"));
+		return(sender.messageToMyself(":ircserver 400 " + sender.getNickname() + " ERROR: You cannot kick yourself ('" + sender.getNickname() + "') from a channel\n"));
 	std::map<int, Client*>& clients = server.getClients();
 	for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt)//Bucle para recorrer todos los clientes que hay conectados al servidor
 	{
@@ -519,41 +510,57 @@ void commandKICK(Client &sender, Server &server, const std::string &channelName,
 				if (channel.isOperator(client))//Elimiar al usuario de la lista de operadores del canal si lo estaba
 					channel.removeOperator(client);
 				std::string reasonParsed = reason;
-				if (reason[0] == ':')
+				if (!reason.empty() && reason[0] == ':')
 					reasonParsed = reason.substr(1);
-				client->messageToMyself(":" + sender.getNickname() + " KICK " + channelName + " " + user + " :" + reasonParsed + "\r\n");
+				if (!reason.empty() && reasonParsed != user)
+					client->messageToMyself(":ircserver 0 " + client->getNickname() + " " + channelName + " ~ You have been kicked by '" + sender.getNickname() + "'. Reason: " + reasonParsed + " ~\r\n");
+				else
+					client->messageToMyself(":ircserver 0 " + client->getNickname() + " " + channelName + " ~ You have been kicked by '" + sender.getNickname() + "' ~\r\n");
+				if (reasonParsed != user)
+					client->messageToMyself(":" + sender.getNickname() + " KICK " + channelName + " " + user + " :" + reasonParsed + "\r\n");
+				else
+					client->messageToMyself(":" + sender.getNickname() + " KICK " + channelName + " " + user + "\r\n");
 				channel.removeClientChannnel(client);//Eliminar al usuario del canal
 				std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' has kicked Client (" << client->getFd() << ") '" << client->getNickname() << "' from channel " << channelName << "\n";
-				channel.messageToGroupNoSender("~ '" + user + "' has been kicked by '" + sender.getNickname() + "' from channel " + channelName + "\n", &sender);
-				sender.messageToMyself("~ You have kicked '" + user + "' from " + channelName + "\n");
-				return(client->messageToMyself("~ You have been kicked from " + channelName + " by '" + sender.getNickname() + "'. Reason: " + reasonParsed + "\n"));
+				channel.messageToGroupNoSender(":" + client->getNickname() + " PRIVMSG " + channelName + " ~ Has been kicked by '" + sender.getNickname() + "' from channel " + channelName + " ~\r\n", &sender);//Mensaje al grupo
+				sender.messageToMyself(":ircserver 0 " + sender.getNickname() + " " + channelName + " ~ You have kicked '" + user + "' from " + channelName + " ~\n");
+				std::string userList = channelName + " :";
+				for (std::set<Client*>::const_iterator it = channel.getClients().begin(); it != channel.getClients().end(); ++it)//Recorrer lista de clientes del canal
+				{
+					if (channel.isOperator(*it))//Si el cliente es operador, ponerle un @ delante
+						userList += "@";
+					userList += (*it)->getNickname() + " ";//Añadir cliente a la lista
+				}
+				channel.messageToGroup(":ircserver 353 " + sender.getNickname() + " " + channelName + " " + userList + "\r\n");// Enviar la lista de usuarios (RPL_NAMREPLY 353)
+				return(channel.messageToGroup(":ircserver 366 " + channelName + " " + channelName + "\r\n"));// Fin de la lista de usuarios (RPL_ENDOFNAMES 366)
+				
 			}
 			else//Si no se cumple, ese usuario ya estaba fuera del canal
-				return(sender.messageToMyself("~ ERROR: User '" + user + "' is not in channel: " + channelName + "\n"));
+				return(sender.messageToMyself(":ircserver 441 " + sender.getNickname() + " ERROR: User '" + user + "' is not in channel: " + channelName + "\n"));
 		}
 	}
-	sender.messageToMyself("~ ERROR: User '" + user + "' does not exist\n"); //El usuario no esta en el servidor
+	sender.messageToMyself(":ircserver 441 " + sender.getNickname() + " ERROR: User '" + user + "' does not exist\n");//El usuario no esta en el servidor
 }
 
 void commandINVITE(Client &sender, Server &server, const std::string &channelName, const std::string &user, const std::string &other)
 {
 	if (channelName.empty() || user.empty())//Verificar que ninguno de los parametros este vacio
-		return(sender.messageToMyself("~ ERROR: Invalid INVITE command syntax. Use: INVITE <user> <#channel>\n"));
+		return(sender.messageToMyself(":ircserver 461 " + sender.getNickname() + " ERROR: Invalid INVITE command syntax. Use: INVITE <user> <#channel>\n"));
 	if (!other.empty())//Verificar ningun otra palabara detras de <user>
-		return(sender.messageToMyself("~ ERROR: Command 'INVITE' does not accept any more parameters than CHANNEL and USER. Use: INVITE <#channel> <user>\n"));
+		return(sender.messageToMyself(":ircserver 461 " + sender.getNickname() + " ERROR: Command 'INVITE' does not accept any more parameters than CHANNEL and USER. Use: INVITE <#channel> <user>\r\n"));
 	std::map<std::string, Channel>& channels = server.getChannels();
 	std::map<std::string, Channel>::iterator it = channels.find(channelName);
 	Channel &channel = it->second;
 	if (it == channels.end())//Comprobar si el canal existe
-		return(sender.messageToMyself("~ ERROR: Channel: " + channelName + " does not exist\n"));
+		return(sender.messageToMyself(":ircserver 403 " + sender.getNickname() + " ERROR: Channel: " + channelName + " does not exist\n"));
 	if (!channel.hasClient(&sender))//Comprobar si estoy está dentro del canal
-		return(sender.messageToMyself("~ ERROR: You are not in channel: " + channelName + "\n"));
+		return(sender.messageToMyself(":ircserver 442 " + sender.getNickname() + " ERROR: You are not in channel: " + channelName + "\n"));
 	if (!channel.isOperator(&sender))//Comprobar si soy operador
-		return(sender.messageToMyself("~ ERROR: You are not an operator of channel: " + channelName + ".\n"));
+		return(sender.messageToMyself(":ircserver 482 " + sender.getNickname() + " ERROR: You are not an operator of channel: " + channelName + "\n"));
 	if (user == sender.getNickname())//Verificar que no me este invitando a mi mismo
-		return(sender.messageToMyself("~ ERROR: You cannot invite yourself ('" + sender.getNickname() + "') to a channel\n"));
+		return(sender.messageToMyself(":ircserver 400 " + sender.getNickname() + " ERROR: You cannot invite yourself ('" + sender.getNickname() + "') to a channel\n"));
 	if (channel.getUserLimit() > 0 && channel.getUserLimit() <= channel.getClientsNumber())//Verificar si el canal esta lleno
-		return(sender.messageToMyself("~ ERROR: Channel: " + channelName + " is already full\n"));
+		return(sender.messageToMyself(":ircserver 471 " + sender.getNickname() + " ERROR: Channel: " + channelName + " is full\n"));
 	std::map<int, Client*>& clients = server.getClients();
 	for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt)//Bucle para recorrer todos los clientes que hay conectados al servidor
 	{
@@ -561,38 +568,38 @@ void commandINVITE(Client &sender, Server &server, const std::string &channelNam
 		if (client->getNickname() == user)//Si el cliente coincide con el usuario al que se va a invitar
 		{
 			if (channel.isInvited(client))//Verificar si ya está en la lista de invitados
-				return(sender.messageToMyself("~ ERROR: User '" + user + "' is already in the clients invited list in channel: " + channelName + "\n"));
+				return(sender.messageToMyself(":ircserver 999 " + sender.getNickname() + " ERROR: User '" + user + "' is already in the clients invited list in channel: " + channelName + "\n"));
 			if (!channel.hasClient(client))//Si el usuario al que se invita no esta ya dentro del canal
 			{
 				channel.inviteClient(client);//Invitar al usuario al canal
 				std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' invited Client (" << client->getFd() << ") '" << client->getNickname() << "' to channel: " << channelName << "\n";
-				sender.messageToMyself("~ You invited '" + user + "' to channel: " + channelName + ".\n");
+				sender.messageToMyself(":ircserver 0 " + sender.getNickname() + " " + channelName + " ~ You invited '" + user + "' ~\n");
 				return(client->messageToMyself("~ '" + sender.getNickname() + "' invited you to channel: " + channelName + ". Use: JOIN <#channel> [key]\n"));
 			}
 			else//Si no se cumple, ese usuario ya estaba dentro del canal
-				return(sender.messageToMyself("~ ERROR: User '" + user + "' is already in channel: " + channelName + "\n"));
+				return(sender.messageToMyself(":ircserver 443 " + sender.getNickname() + " ERROR: User '" + user + "' is already in channel: " + channelName + "\n"));
 		}
 	}
-	sender.messageToMyself("~ ERROR: User '" + user + "' does not exist\n"); //El usuario no esta en el servidor
+	sender.messageToMyself(":ircserver 441 " + sender.getNickname() + " ERROR: User '" + user + "' does not exist\n");//El usuario no esta en el servidor
 }
 
 void commandUNINVITE(Client &sender, Server &server, const std::string &channelName, const std::string &user, const std::string &other)
 {
 	if (channelName.empty() || user.empty())//Verificar que ninguno de los parametros este vacio
-		return(sender.messageToMyself("~ ERROR: Invalid UNINVITE command syntax. Use: UNINVITE <user> <#channel>\n"));
+		return(sender.messageToMyself(":ircserver 461 " + sender.getNickname() + " ERROR: Invalid UNINVITE command syntax. Use: UNINVITE <user> <#channel>\n"));
 	if (!other.empty())//Verificar ningun otra palabara detras de <user>
-		return(sender.messageToMyself("~ ERROR: Command 'UNINVITE' does not accept any more parameters than CHANNEL and USER. Use: UNINVITE <#channel> <user>\n"));
+		return(sender.messageToMyself(":ircserver 461 " + sender.getNickname() + " ERROR: Command 'UNINVITE' does not accept any more parameters than CHANNEL and USER. Use: UNINVITE <#channel> <user>\n"));
 	std::map<std::string, Channel>& channels = server.getChannels();
 	std::map<std::string, Channel>::iterator it = channels.find(channelName);
 	Channel &channel = it->second;
 	if (it == channels.end())//Comprobar si el canal existe
-		return(sender.messageToMyself("~ ERROR: Channel: " + channelName + " does not exist\n"));
+		return(sender.messageToMyself(":ircserver 403 " + sender.getNickname() + " ERROR: Channel: " + channelName + " does not exist\n"));
 	if (!channel.hasClient(&sender))//Comprobar si estoy está dentro del canal
-		return(sender.messageToMyself("~ ERROR: You are not in channel: " + channelName + "\n"));
+		return(sender.messageToMyself(":ircserver 442 " + sender.getNickname() + " ERROR: You are not in channel: " + channelName + "\n"));
 	if (!channel.isOperator(&sender))//Comprobar si soy operador
-		return(sender.messageToMyself("~ ERROR: You are not an operator of channel: " + channelName + ".\n"));
-	if (user == sender.getNickname())//Verificar que no me este invitando a mi mismo
-		return(sender.messageToMyself("~ ERROR: You cannot invite yourself ('" + sender.getNickname() + "') to a channel\n"));
+		return(sender.messageToMyself(":ircserver 482 " + sender.getNickname() + " ERROR: You are not an operator of channel: " + channelName + "\n"));
+	if (user == sender.getNickname())//Verificar que no me este desinvitando a mi mismo
+		return(sender.messageToMyself(":ircserver 400 " + sender.getNickname() + " ERROR: You cannot uninvite yourself ('" + sender.getNickname() + "') to a channel\n"));
 	std::map<int, Client*>& clients = server.getClients();
 	for (std::map<int, Client*>::iterator clientIt = clients.begin(); clientIt != clients.end(); ++clientIt)//Bucle para recorrer todos los clientes que hay conectados al servidor
 	{
@@ -600,73 +607,75 @@ void commandUNINVITE(Client &sender, Server &server, const std::string &channelN
 		if (client->getNickname() == user)//Si el cliente coincide con el usuario al que se va a invitar
 		{
 			if (!channel.isInvited(client))//Verificar si no está en la lista de invitados
-				return(sender.messageToMyself("~ ERROR: User '" + user + "' is not in the clients invited list in channel: " + channelName + "\n"));
+				return(sender.messageToMyself(":ircserver 999 " + sender.getNickname() + " ERROR: User '" + user + "' is not in the clients invited list in channel: " + channelName + "\n"));
 			channel.removeInvitedClient(client);//Eliminar al usuario de la lista de invitados del canal
 			std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' uninvited Client (" << client->getFd() << ") '" << client->getNickname() << "' to channel: " << channelName << "\n";
-			sender.messageToMyself("~ You uninvited '" + user + "' to channel: " + channelName + ".\n");
+			sender.messageToMyself(":ircserver 0 " + sender.getNickname() + " " + channelName + " ~ You uninvited '" + user + "' ~\n");
 			return(client->messageToMyself("~ '" + sender.getNickname() + "' uninvited you to channel: " + channelName + ". You are not in the invited list anymore\n"));
 		}
 	}
-	sender.messageToMyself("~ ERROR: User '" + user + "' does not exist\n"); //El usuario no está en el servidor
+	sender.messageToMyself(":ircserver 441 " + sender.getNickname() + " ERROR: User '" + user + "' does not exist\n");//El usuario no esta en el servidor
 }
 
 void commandTOPIC(Client &sender, Server &server, const std::string &channelName, const std::string &topic)
 {
 	if (channelName.empty())//Comprobar si solo se ha escrito topic
-		return(sender.messageToMyself("~ ERROR: Invalid TOPIC command syntax. Use: TOPIC <#channel> [new topic]\n"));
+		return(sender.messageToMyself(":ircserver 461 " + sender.getNickname() + " ERROR: Invalid TOPIC command syntax. Use: TOPIC <#channel> [new topic]\n"));
 	std::map<std::string, Channel>& channels = server.getChannels();
 	std::map<std::string, Channel>::iterator it = channels.find(channelName);
 	if (it == channels.end())//Comprobar si el canal existe
-		return(sender.messageToMyself("~ ERROR: Channel: " + channelName + " does not exist\n"));
+		return(sender.messageToMyself(":ircserver 403 " + sender.getNickname() + " ERROR: Channel: " + channelName + " does not exist\n"));
 	Channel &channel = it->second;
 	if (topic.empty())//Comprobar si solamente quiero ver el topic
 	{
 		if (channel.isTopicEmpty())//Comprobar si el canal no tiene topic
-			return(sender.messageToMyself("~ Channel: " + channelName + " has no TOPIC yet\n"));
-		return(sender.messageToMyself("~ Current TOPIC for channel: " + channelName + " is '" + channel.getTopic() + "'\n"));
+			return(sender.messageToMyself(":ircserver 331 " + sender.getNickname() + " " + channelName + " ~ Has no TOPIC yet ~\r\n"));
+		return(sender.messageToMyself(":ircserver 332 " + sender.getNickname() + " " + channelName + " '" + channel.getTopic() + "'\r\n"));
 	}
 	if (!channel.hasClient(&sender))//Comprobar si estoy está dentro del canal
-		return(sender.messageToMyself("~ ERROR: You are not in channel: " + channelName + "\n"));
+		return(sender.messageToMyself(":ircserver 442 " + sender.getNickname() + " ERROR: You are not in channel: " + channelName + "\n"));
 	if ((channel.isTopicRestricted() && !channel.isOperator(&sender)))//Comprobar si el canal esta +t y yo no soy operador
-		return(sender.messageToMyself("~ ERROR: You are not allowed to change the topic in channel: " + channelName + ". Channel is in MODE +t and you are not an operator\n"));
+		return(sender.messageToMyself(":ircserver 482 " + sender.getNickname() + " ERROR: You are not allowed to change the topic in channel: " + channelName + ". Channel is in MODE +t and you are not an operator\n"));
 	std::string topicParsed = topic;
 	if (topic[0] == ':')
 		topicParsed = topic.substr(1);
 	if (topicParsed == "REMOVE" || topicParsed == "remove")// Eliminar el tema del canal
 	{
 		if (channel.getTopic() == "")//Comprobar si estoy intentando eliminar el topic en un canal que no tiene topic
-			return(sender.messageToMyself("~ ERROR: Channel: " + channelName + " has no TOPIC\n"));
+			return(sender.messageToMyself(":ircserver 999 " + sender.getNickname() + " ERROR: Channel: " + channelName + " has no TOPIC\n"));
 		channel.setTopic("");
 		std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' removed TOPIC in channel: " << channelName << "\n";
-		sender.messageToMyself("~ You removed TOPIC in channel: " + channelName + "\n");
-		return(channel.messageToGroupNoSender("~ '" + sender.getNickname() + "' removed TOPIC in channel: " + channelName + "\n", &sender));
+		sender.messageToMyself(":ircserver 332 " + sender.getNickname() + " " + channelName + " " + channel.getTopic() + "\r\n");
+		channel.messageToGroupNoSender(":" + sender.getNickname() + " PRIVMSG " + channelName + " ~ Removed TOPIC in channel ~\r\n", &sender);
+		return(channel.messageToGroupNoSender(":ircserver 332 " + sender.getNickname() + " " + channelName + " " + channel.getTopic() + "\r\n", &sender));
 	}
 	if (channel.getTopic() == topicParsed)//Comprobar si estoy intentando poner un topic en un canal que ya tiene ese mismo topic
-			return(sender.messageToMyself("~ ERROR: TOPIC in channel: " + channelName + " is already '" + topicParsed + "'\n"));
+			return(sender.messageToMyself(":ircserver 999 " + sender.getNickname() + " ERROR: TOPIC in channel: " + channelName + " is already '" + topicParsed + "'\n"));
 	channel.setTopic(topicParsed);
 	std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' changed TOPIC to '" << topicParsed << "' in channel: " << channelName << "\n";
-	sender.messageToMyself("~ You changed TOPIC to '" + topicParsed + "' in channel: " + channelName + "\n");
-	channel.messageToGroupNoSender("~ '" + sender.getNickname() + "' changed TOPIC to '" + topicParsed + "' in channel: " + channelName + "\n", &sender);
+	sender.messageToMyself(":ircserver 332 " + sender.getNickname() + " " + channelName + " '" + channel.getTopic() + "'\r\n");
+	channel.messageToGroupNoSender(":" + sender.getNickname() + " PRIVMSG " + channelName + " ~ Changed TOPIC to '" + topicParsed + "' in channel ~\r\n", &sender);
+	channel.messageToGroupNoSender(":ircserver 332 " + sender.getNickname() + " " + channelName + " '" + channel.getTopic() + "'\r\n", &sender);
 }
 
 void commandKEY(Client &sender, Server &server, const std::string &channelName, const std::string &other)
 {
 	if (channelName.empty())// Verificar que se ha especificado un canal
-		return(sender.messageToMyself("~ ERROR: Invalid KEY command syntax. Use: KEY <#channel>\n"));
+		return(sender.messageToMyself(":ircserver 461 " + sender.getNickname() + " ERROR: Invalid KEY command syntax. Use: KEY <#channel>\n"));
 	if (!other.empty())
-		return(sender.messageToMyself("~ ERROR: Command 'KEY' does not accept any more parameters than CHANNEL. Use: KEY <#channel>\n"));
+		return(sender.messageToMyself(":ircserver 461 " + sender.getNickname() + " ERROR: Command 'KEY' does not accept any more parameters than CHANNEL. Use: KEY <#channel>\n"));
 	std::map<std::string, Channel>& channels = server.getChannels();
 	std::map<std::string, Channel>::iterator it = channels.find(channelName);
 	Channel &channel = it->second;
 	if (it == channels.end())//Comprobar si el canal existe
-		return(sender.messageToMyself("~ ERROR: Channel " + channelName + " does not exist\n"));
+		return(sender.messageToMyself(":ircserver 403 " + sender.getNickname() + " ERROR: Channel: " + channelName + " does not exist\n"));
 	if (!channel.hasClient(&sender))//Comprobar si estoy está dentro del canal
-		return(sender.messageToMyself("~ ERROR: You are not in channel: " + channelName + "\n"));
+		return(sender.messageToMyself(":ircserver 442 " + sender.getNickname() + " ERROR: You are not in channel: " + channelName + "\n"));
 	if (!channel.isOperator(&sender))//Comprobar si soy operador
-		return(sender.messageToMyself("~ ERROR: You are not an operator in channel: " + channelName + "\n"));
+		return(sender.messageToMyself(":ircserver 482 " + sender.getNickname() + " ERROR: You are not an operator of channel: " + channelName + "\n"));
 	if(channel.getKey() == "")//Comprobar si el acanal tiene key
-		return(sender.messageToMyself("~ Channel: " + channelName + " has no key\n"));
-	sender.messageToMyself("~ Channel: " + channelName + " has '" + channel.getKey() + "' as a key\n");
+		return(sender.messageToMyself(":ircserver 0 " + sender.getNickname() + " " + channelName + " ~ Channel has no key ~\n"));
+	sender.messageToMyself(":ircserver 0 " + sender.getNickname() + " " + channelName + " ~ Channel has '" + channel.getKey() + "' as a key ~\n");
 }
 
 void commandMODE(Client &sender, Server &server, const std::string &channelName, const std::string &mode, const std::string &param)
@@ -711,7 +720,16 @@ void commandMODE(Client &sender, Server &server, const std::string &channelName,
 					std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' gave operator privileges to '" << param << "' in channel: " << channelName << "\n";
 					sender.messageToMyself("~ You gave OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n");
 					channel.messageToGroupNoSenderNoReceiver("~ '" + sender.getNickname() + "' gave OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n", &sender, client);
-					return(client->messageToMyself("~ '" + sender.getNickname() + "' gave you OPERATOR PRIVILEGES in channel: " + channelName + "\n"));
+					client->messageToMyself("~ '" + sender.getNickname() + "' gave you OPERATOR PRIVILEGES in channel: " + channelName + "\n");
+					std::string userList = channelName + " :";
+					for (std::set<Client*>::const_iterator it = channel.getClients().begin(); it != channel.getClients().end(); ++it)//Recorrer lista de clientes del canal
+					{
+						if (channel.isOperator(*it))//Si el cliente es operador, ponerle un @ delante
+							userList += "@";
+						userList += (*it)->getNickname() + " ";//Añadir cliente a la lista
+					}
+					channel.messageToGroup(":ircserver 353 " + sender.getNickname() + " " + channelName + " " + userList + "\r\n");// Enviar la lista de usuarios (RPL_NAMREPLY 353)
+					return(channel.messageToGroup(":ircserver 366 " + channelName + " " + channelName + "\r\n"));// Fin de la lista de usuarios (RPL_ENDOFNAMES 366)
 				}
 				else
 					return(sender.messageToMyself("~ ERROR: User '" + param + "' is not in channel: " + channelName + "\n"));
@@ -740,7 +758,16 @@ void commandMODE(Client &sender, Server &server, const std::string &channelName,
 					std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' removed operator privileges to '" << param << "' in channel: " << channelName << "\n";
 					sender.messageToMyself("~ You removed OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n");
 					channel.messageToGroupNoSenderNoReceiver("~ '" + sender.getNickname() + "' removed OPERATOR PRIVILEGES to '" + param + "' in channel: " + channelName + "\n", &sender, client);
-					return(client->messageToMyself("~ '" + sender.getNickname() + "' removed your OPERATOR PRIVILEGES in channel: " + channelName + "\n"));
+					client->messageToMyself("~ '" + sender.getNickname() + "' removed your OPERATOR PRIVILEGES in channel: " + channelName + "\n");
+					std::string userList = channelName + " :";
+					for (std::set<Client*>::const_iterator it = channel.getClients().begin(); it != channel.getClients().end(); ++it)//Recorrer lista de clientes del canal
+					{
+						if (channel.isOperator(*it))//Si el cliente es operador, ponerle un @ delante
+							userList += "@";
+						userList += (*it)->getNickname() + " ";//Añadir cliente a la lista
+					}
+					channel.messageToGroup(":ircserver 353 " + sender.getNickname() + " " + channelName + " " + userList + "\r\n");// Enviar la lista de usuarios (RPL_NAMREPLY 353)
+					return(channel.messageToGroup(":ircserver 366 " + channelName + " " + channelName + "\r\n"));// Fin de la lista de usuarios (RPL_ENDOFNAMES 366)
 				}
 				else
 					return(sender.messageToMyself("~ ERROR: User '" + param + "' is not in channel: " + channelName + "\n"));
@@ -854,16 +881,28 @@ void commandMODE(Client &sender, Server &server, const std::string &channelName,
 					return(sender.messageToMyself("~ ERROR: User '" + param + "' is already banned in " + channelName + ".\n"));
 				if (channel.isInvited(client))//Eliminar al usuario de la lista de invitados del canal si lo estaba
 					channel.removeInvitedClient(client);
-				if (channel.isOperator(client))//Elimiar al usuario de la lista de operadores del canal si lo estaba
-					channel.removeOperator(client);
-				if (channel.hasClient(client))//Eliminar al usuario del canal si está dentro
-					channel.removeClientChannnel(client);
-				client->messageToMyself(":" + sender.getNickname() + " KICK " + channelName + " " + param + "\r\n");
 				channel.banClient(client);// Banear al usuario
 				std::cout << "Client (" << sender.getFd() << ") '" << sender.getNickname() << "' has banned Client (" << client->getFd() << ") '" << client->getNickname() << "' from channel " << channelName << "\n";
 				channel.messageToGroupNoSender("~ '" + param + "' has been banned by '" + sender.getNickname() + "' from channel " + channelName + "\n", &sender);
 				sender.messageToMyself("~ You have banned '" + param + "' from " + channelName + "\n");
-				return(client->messageToMyself("~ You have been banned from " + channelName + " by '" + sender.getNickname() + "'\n"));
+				client->messageToMyself("~ You have been banned from " + channelName + " by '" + sender.getNickname() + "'\n");
+				client->messageToMyself(":" + sender.getNickname() + " KICK " + channelName + " " + param + "\r\n");
+				if (channel.hasClient(client))//Eliminar al usuario del canal si está dentro
+				{
+					channel.removeClientChannnel(client);
+					if (channel.isOperator(client))//Elimiar al usuario de la lista de operadores del canal si lo estaba
+						channel.removeOperator(client);
+					std::string userList = channelName + " :";
+					for (std::set<Client*>::const_iterator it = channel.getClients().begin(); it != channel.getClients().end(); ++it)//Recorrer lista de clientes del canal
+					{
+						if (channel.isOperator(*it))//Si el cliente es operador, ponerle un @ delante
+							userList += "@";
+						userList += (*it)->getNickname() + " ";//Añadir cliente a la lista
+					}
+					channel.messageToGroup(":ircserver 353 " + sender.getNickname() + " " + channelName + " " + userList + "\r\n");// Enviar la lista de usuarios (RPL_NAMREPLY 353)
+					channel.messageToGroup(":ircserver 366 " + channelName + " " + channelName + "\r\n");// Fin de la lista de usuarios (RPL_ENDOFNAMES 366)
+				}
+				return;
 			}
 		}
 		sender.messageToMyself("~ ERROR: User '" + param + "' does not exist\n");
@@ -973,8 +1012,8 @@ void Server::handleCommand(Client &client, Server &server, const std::string &cm
 		commandPROFILE(client, param);
 	else if (cmd == "CHANNELS")// Sintaxis: CHANNELS [all]
 		commandCHANNELS(client, server, param, param2);
-	else if (cmd == "MSG" || cmd == "PRIVMSG")// Sintaxis: MSG <user/#channel> <message>
-		commandMSG(client, server, param, paramraw2, param3, cmd);
+	else if (cmd == "MSG" ||  cmd == "PRIVMSG")// Sintaxis: MSG <user/#channel> <message>
+		commandPRIVMSG(client, server, param, paramraw2, param3);
 	else if (cmd == "JOIN")// Sintaxis: JOIN <#channel> [key]. 
 		commandJOIN(client, server, param, param2, param3);
 	else if (cmd == "WHO")

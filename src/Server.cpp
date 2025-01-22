@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/11 12:28:54 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/17 18:56:16 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/22 18:42:05 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -158,17 +158,6 @@ void Server::handleClientActions(int clientFd)
 	}
 	if (bytesReceived <= 0)//Si se cierra la ventana sin hacer QUIT
 		return(handleCommand(*clients[clientFd], *this, "QUIT", "", "", "", ""));// Llamar a handleCommand con QUIT para desconectar al cliente del servidor
-	/* std::string clientBuffer = clients[clientFd]->getBuffer(); // Obtener el búfer del cliente
-	clientBuffer += std::string(buffer, bytesReceived);// Acumular datos recibidos en el búfer del cliente
-	size_t pos;
-	std::cout << "[DEBUG] buffer1:" << clientBuffer << ".\n";
-	while ((pos = clientBuffer.find('\n')) != std::string::npos)// Procesar mensajes completos en el búfer
-	{
-		std::string fullLine = clientBuffer.substr(0, pos); // Extraer un mensaje completo
-		clientBuffer.erase(0, pos + 1); // Eliminar el mensaje procesado del búfer
-		std::cout << "[DEBUG] buffer2:" << clientBuffer << ".\n";
-		processClientLine(clients[clientFd], fullLine);// Procesar la línea escrita por el cliente
-	} */
 	std::string clientBuffer(buffer);
 	size_t pos;
 	std::cout << "[DEBUG] buffer1:" << clientBuffer << ".\n";
