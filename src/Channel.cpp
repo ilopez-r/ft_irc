@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/10 14:37:04 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/11 20:56:56 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/23 17:03:03 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -119,6 +119,11 @@ void Channel::clearBannedClients()
 bool Channel::isBannedListEmpty() const
 {
 	return (bannedClients.empty());
+}
+
+const std::set<Client*>& Channel::getBannedClients() const
+{
+	return (bannedClients);
 }
 
 bool Channel::isInvited(Client *client) const

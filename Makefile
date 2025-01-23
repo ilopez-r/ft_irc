@@ -6,7 +6,7 @@
 #    By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/01/13 15:02:37 by ilopez-r          #+#    #+#              #
-#    Updated: 2025/01/16 18:31:20 by ilopez-r         ###   ########.fr        #
+#    Updated: 2025/01/23 19:09:21 by ilopez-r         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -22,7 +22,7 @@ SRC = src/Channel.cpp\
 		src/Client.cpp\
 		src/main.cpp\
 		src/Server.cpp\
-		src/Comannds.cpp\
+		src/commands/HandleCommands.cpp\
 		src/bonus/bot.cpp\
 
 OBJ = $(SRC:.cpp=.o)
