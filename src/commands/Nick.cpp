@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/23 20:27:14 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/23 20:27:15 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/24 15:59:00 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -43,21 +43,22 @@ void commandNICK(Client &client, Server &server, const std::string &nickname, co
 	for (std::map<int, Client*>::const_iterator it = clients.begin(); it != clients.end(); ++it)
 	{
 		Client *clients = it->second;
-		if (clients->getNickname() == nickname)// Verificar si el nickname ya está en uso
+		if (clients && clients->getNickname() == nickname)// Verificar si el nickname ya está en uso
 		{
-			if (!client.getNickname().empty())
-				return(client.messageToMyself(":ircserver 433 " + client.getNickname() + " ERROR: Nickname '" + nickname + "' is already in use\r\n"));// El nickname ya está en uso.
-			return(client.messageToMyself(":ircserver 433 ERROR: Nickname '" + nickname + "' is already in user\n"));
+			client.messageToMyself(":ircserver 433 " + nickname + " ERROR: Nickname '" + nickname + "' is already in use\r\n");
+			return(client.messageToMyself(":ircserver 001\r\n"));
 		}
 	}
 	std::string oldNickname = client.getNickname(); //Guardar el nickname anterior
 	client.setNickname(nickname);// Asignar el nickname al cliente.
 	if (oldNickname.empty()) //Si es el primer nickname que se pone
 	{
+		client.messageToMyself(":" + oldNickname + " NICK :" + nickname + "\r\n");
 		std::cout << "Client (" << client.getFd() << ") setted his nickname to '" << client.getNickname() << "'\n";
-		return(client.messageToMyself("~ You setted your nickname to '" + nickname + "'\n"));
+		return(client.messageToMyself(":ircserver 999 " + client.getNickname() + " ~ You setted your nickname to '" + nickname + "' ~\r\n"));
 	}
-	client.messageToMyself("~ You changed your nickname from '" + oldNickname + "' to '" + nickname + "'\n");
+	client.messageToMyself(":" + oldNickname + " NICK :" + nickname + "\r\n");
+	client.messageToMyself(":ircserver 999 " + client.getNickname() + " ~ You changed your nickname to '" + nickname + "' ~\r\n");
 	std::cout << "Client (" << client.getFd() << ") '" << oldNickname << "' changed his nickname to '" << client.getNickname() << "'\n";
 	std::map<std::string, Channel>& channels = server.getChannels();
 	for (std::map<std::string, Channel>::iterator it = channels.begin(); it != channels.end();it++)
@@ -65,6 +66,9 @@ void commandNICK(Client &client, Server &server, const std::string &nickname, co
 		Channel &channel = it->second;
 		std::string channelName = it->first;
 		if (channel.hasClient(&client))
-			channel.messageToGroupNoSender(":" + client.getNickname() + " PRIVMSG " + channelName + " ~ Changed his nickname to '" + nickname + "' ~\r\n", &client);
+		{
+			channel.messageToGroupNoSender(":" + oldNickname + " NICK :" + nickname + "\r\n", &client);
+			channel.messageToGroupNoSender("'" + oldNickname + "' changed his nickname to '" + nickname + "'\r\n", &client);
+		}
 	}
 }

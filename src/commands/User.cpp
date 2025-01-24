@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/23 20:27:51 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/23 20:27:52 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/24 13:56:30 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,7 +23,7 @@ void commandUSER(Client &client, const std::string &username, const std::string 
 	if (other2 == "0 * :realname")
 	{
 		client.setUsername(username);
-		return(client.messageToMyself("~ You setted your username to '" + username + "'\n"));
+		return(client.messageToMyself(":ircserver 999 " + client.getNickname() + " ~ You setted your username to '" + username + "' ~\r\n"));
 	}
 	if (!other.empty()) // Verificar ningun otra palabara detras del username
 	{
@@ -38,5 +38,5 @@ void commandUSER(Client &client, const std::string &username, const std::string 
 		return(client.messageToMyself(":ircserver 436 ERROR: Username cannot be longer than 9 characters\r\n"));
 	}
 	client.setUsername(username);
-	client.messageToMyself("~ You setted your username to '" + username + "'\n");
+	client.messageToMyself(":ircserver 999 " + client.getNickname() + " ~ You setted your username to '" + username + "' ~\r\n");
 }

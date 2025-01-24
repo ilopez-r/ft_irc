@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/23 20:27:26 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/23 20:29:58 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/24 11:51:48 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -59,5 +59,5 @@ void commandPRIVMSG(Client &sender, Server &server, const std::string &receiver,
 				return(destinatary->messageToMyself(":" + sender.getNickname() + " PRIVMSG " + receiver + " " + message + "\r\n"));
 		}
 	}
-	sender.messageToMyself(":ircserver 401 " + sender.getNickname() + " ERROR: User '" + receiver + "' does not exist\n");// Si no se encuentra el receptor
+	sender.messageToMyself(":ircserver 401 " + sender.getNickname() + " " + receiver + " ERROR: User not in server\r\n");// Si no se encuentra el receptor
 }

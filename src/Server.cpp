@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/11 12:28:54 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/22 18:42:05 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/24 15:41:02 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -160,7 +160,7 @@ void Server::handleClientActions(int clientFd)
 		return(handleCommand(*clients[clientFd], *this, "QUIT", "", "", "", ""));// Llamar a handleCommand con QUIT para desconectar al cliente del servidor
 	std::string clientBuffer(buffer);
 	size_t pos;
-	std::cout << "[DEBUG] buffer1:" << clientBuffer << ".\n";
+	/* std::cout << "[DEBUG] buffer1:" << clientBuffer << ".\n"; */
 	while ((pos = clientBuffer.find_first_of("\n")) != std::string::npos)
 	{
 		clients[clientFd]->setBuffer(clients[clientFd]->getBuffer() + clientBuffer.substr(0, pos + 1));
@@ -168,7 +168,7 @@ void Server::handleClientActions(int clientFd)
 		if (clients.find(clientFd) != clients.end())
 			clients[clientFd]->setBuffer("");
 		clientBuffer.erase(0, pos + 1);
-		std::cout << "[DEBUG] buffer2:" << clientBuffer << ".\n";
+		/* std::cout << "[DEBUG] buffer2:" << clientBuffer << ".\n"; */
 	}
 	if (clients[clientFd])
 		clients[clientFd]->setBuffer(clients[clientFd]->getBuffer() + clientBuffer);
@@ -214,12 +214,12 @@ void Server::processClientLine(Client *client, const std::string &rawInput)
 		std::string reason = trim(param3.substr(spacePos + 1));
 		param3 = reason;
 	}
-	std::cout << "\n[DEBUG] command:" << cmd << ".\n";
+/* 	std::cout << "\n[DEBUG] command:" << cmd << ".\n";
 	std::cout << "[DEBUG] paramraw:" << paramraw << ".\n";
 	std::cout << "[DEBUG] param:" << param << ".\n";
 	std::cout << "[DEBUG] paramraw2:" << paramraw2 << ".\n";
 	std::cout << "[DEBUG] param2:" << param2 << ".\n";
-	std::cout << "[DEBUG] param3:" << param3 << ".\n";
+	std::cout << "[DEBUG] param3:" << param3 << ".\n"; */
 	handleCommand(*client, *this, cmd, param, paramraw2, param2, param3);
 }
 

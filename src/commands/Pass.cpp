@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/23 20:27:22 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/23 20:27:23 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/24 13:57:20 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -30,7 +30,7 @@ void commandPASS(Client &client, Server &server, const std::string &pass, const 
 	{
 		std::cout << "Client (" << client.getFd() << ") accepted in server\n";
 		client.setPasswordSent(true);
-		client.messageToMyself("~ Correct password! You must now use commands USER <username> and NICK <nickname> to start using the server\n");
+		client.messageToMyself(":ircserver 999 " + client.getNickname() + " ~ Correct password! Now use commands USER <username> and NICK <nickname> to start using the server\r\n");
 	}
 	else //password incorrecta
 	{

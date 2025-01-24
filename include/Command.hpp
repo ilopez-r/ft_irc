@@ -6,7 +6,7 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/23 20:26:17 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/23 20:26:18 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/24 11:55:33 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -31,5 +31,6 @@ void commandTOPIC(Client &sender, Server &server, const std::string &channelName
 void commandKEY(Client &sender, Server &server, const std::string &channelName, const std::string &other);
 void commandMODE(Client &sender, Server &server, const std::string &channelName, const std::string &mode, const std::string &param);
 void commandREMOVE(Client &sender, Server &server, const std::string &channelName, const std::string &param, const std::string &other);
+std::string to_string (int number);
 
 #endif

@@ -6,18 +6,11 @@
 /*   By: ilopez-r <ilopez-r@student.42malaga.com    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/01/23 20:27:10 by ilopez-r          #+#    #+#             */
-/*   Updated: 2025/01/23 20:27:11 by ilopez-r         ###   ########.fr       */
+/*   Updated: 2025/01/24 11:55:44 by ilopez-r         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../../include/Command.hpp"
-
-std::string to_string2(int number)
-{
-	std::ostringstream oss;
-	oss << number;
-	return (oss.str());
-}
 
 void commandMODE(Client &sender, Server &server, const std::string &channelName, const std::string &mode, const std::string &param)
 {
@@ -189,7 +182,7 @@ void commandMODE(Client &sender, Server &server, const std::string &channelName,
 		if (limit == 0 || limit == 1)
 			return(sender.messageToMyself(":ircserver 999 " + sender.getNickname() + " ERROR: Limit cannot be less than 2\n"));
 		if (limit < channel.getClientsNumber())
-			return(sender.messageToMyself(":ircserver 999 " + sender.getNickname() + " ERROR: Limit cannot be less than the channel's actual number of members (" + to_string2(channel.getClientsNumber()) + ")\n"));
+			return(sender.messageToMyself(":ircserver 999 " + sender.getNickname() + " ERROR: Limit cannot be less than the channel's actual number of members (" + to_string(channel.getClientsNumber()) + ")\n"));
 		if (limit == channel.getUserLimit())
 			return(sender.messageToMyself(":ircserver 999 " + sender.getNickname() + " ERROR: Channel: " + channelName + " is already limited to " + param + "\n"));
 		channel.setUserLimit(limit);
